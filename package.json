@@ -1,0 +1,24 @@
+{
+  "name": "pembusukan-otak",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync-assets": "node scripts/sync-assets.mjs",
+    "dev": "npm run sync-assets && vite",
+    "build": "npm run sync-assets && vite build",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fontsource/quicksand": "^5.1.0",
+    "@fontsource/russo-one": "^5.1.0",
+    "@fontsource/titan-one": "^5.1.0",
+    "phaser": "3.87.0",
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "vite": "^6.1.0",
+    "vitest": "^3.0.5"
+  }
+}
