@@ -3,7 +3,7 @@ export const ASSETS_MANIFEST = {
   "images": {
     "large": {
       "key": "large",
-      "path": "/assets/images/large.png",
+      "path": "assets/images/large.png",
       "category": "minion",
       "originalSize": {
         "width": 479,
@@ -20,7 +20,7 @@ export const ASSETS_MANIFEST = {
     },
     "b3": {
       "key": "b3",
-      "path": "/assets/images/b3.png",
+      "path": "assets/images/b3.png",
       "category": "boss",
       "originalSize": {
         "width": 384,
@@ -37,7 +37,7 @@ export const ASSETS_MANIFEST = {
     },
     "b2": {
       "key": "b2",
-      "path": "/assets/images/b2.png",
+      "path": "assets/images/b2.png",
       "category": "boss",
       "originalSize": {
         "width": 501,
@@ -54,7 +54,7 @@ export const ASSETS_MANIFEST = {
     },
     "b1": {
       "key": "b1",
-      "path": "/assets/images/b1.png",
+      "path": "assets/images/b1.png",
       "category": "boss",
       "originalSize": {
         "width": 384,
@@ -71,7 +71,7 @@ export const ASSETS_MANIFEST = {
     },
     "b5": {
       "key": "b5",
-      "path": "/assets/images/b5.png",
+      "path": "assets/images/b5.png",
       "category": "boss",
       "originalSize": {
         "width": 408,
@@ -88,7 +88,7 @@ export const ASSETS_MANIFEST = {
     },
     "b4": {
       "key": "b4",
-      "path": "/assets/images/b4.png",
+      "path": "assets/images/b4.png",
       "category": "boss",
       "originalSize": {
         "width": 261,
@@ -105,7 +105,7 @@ export const ASSETS_MANIFEST = {
     },
     "c67": {
       "key": "c67",
-      "path": "/assets/images/c67.png",
+      "path": "assets/images/c67.png",
       "category": "candy",
       "originalSize": {
         "width": 268,
@@ -122,7 +122,7 @@ export const ASSETS_MANIFEST = {
     },
     "bluberini": {
       "key": "bluberini",
-      "path": "/assets/images/bluberini.png",
+      "path": "assets/images/bluberini.png",
       "category": "candy",
       "originalSize": {
         "width": 384,
@@ -139,7 +139,7 @@ export const ASSETS_MANIFEST = {
     },
     "lirili": {
       "key": "lirili",
-      "path": "/assets/images/lirili.png",
+      "path": "assets/images/lirili.png",
       "category": "candy",
       "originalSize": {
         "width": 364,
@@ -156,7 +156,7 @@ export const ASSETS_MANIFEST = {
     },
     "nugget": {
       "key": "nugget",
-      "path": "/assets/images/nugget.png",
+      "path": "assets/images/nugget.png",
       "category": "candy",
       "originalSize": {
         "width": 216,
@@ -173,7 +173,7 @@ export const ASSETS_MANIFEST = {
     },
     "skibidi": {
       "key": "skibidi",
-      "path": "/assets/images/skibidi.png",
+      "path": "assets/images/skibidi.png",
       "category": "candy",
       "originalSize": {
         "width": 255,
@@ -190,7 +190,7 @@ export const ASSETS_MANIFEST = {
     },
     "udin": {
       "key": "udin",
-      "path": "/assets/images/udin.png",
+      "path": "assets/images/udin.png",
       "category": "candy",
       "originalSize": {
         "width": 345,
@@ -207,7 +207,7 @@ export const ASSETS_MANIFEST = {
     },
     "logo": {
       "key": "logo",
-      "path": "/assets/images/logo.png",
+      "path": "assets/images/logo.png",
       "category": "special",
       "originalSize": {
         "width": 513,
@@ -224,7 +224,7 @@ export const ASSETS_MANIFEST = {
     },
     "medium": {
       "key": "medium",
-      "path": "/assets/images/medium.png",
+      "path": "assets/images/medium.png",
       "category": "minion",
       "originalSize": {
         "width": 228,
@@ -241,7 +241,7 @@ export const ASSETS_MANIFEST = {
     },
     "player": {
       "key": "player",
-      "path": "/assets/images/player.png",
+      "path": "assets/images/player.png",
       "category": "special",
       "originalSize": {
         "width": 669,
@@ -258,7 +258,7 @@ export const ASSETS_MANIFEST = {
     },
     "small": {
       "key": "small",
-      "path": "/assets/images/small.png",
+      "path": "assets/images/small.png",
       "category": "minion",
       "originalSize": {
         "width": 255,
@@ -277,77 +277,77 @@ export const ASSETS_MANIFEST = {
   "audio": {
     "bgm.menu": {
       "key": "bgm.menu",
-      "path": "/assets/audio/bgm_menu.mp3",
+      "path": "assets/audio/bgm_menu.mp3",
       "category": "bgm"
     },
     "bgm.story": {
       "key": "bgm.story",
-      "path": "/assets/audio/bgm_story.mp3",
+      "path": "assets/audio/bgm_story.mp3",
       "category": "bgm"
     },
     "bgm.timekill": {
       "key": "bgm.timekill",
-      "path": "/assets/audio/bgm_timekill.mp3",
+      "path": "assets/audio/bgm_timekill.mp3",
       "category": "bgm"
     },
     "sfx.candy.c67": {
       "key": "sfx.candy.c67",
-      "path": "/assets/audio/sfx_candy_c67.mp3",
+      "path": "assets/audio/sfx_candy_c67.mp3",
       "category": "sfx"
     },
     "sfx.candy.bluberini": {
       "key": "sfx.candy.bluberini",
-      "path": "/assets/audio/sfx_candy_bluberini.mp3",
+      "path": "assets/audio/sfx_candy_bluberini.mp3",
       "category": "sfx"
     },
     "sfx.boss.b3": {
       "key": "sfx.boss.b3",
-      "path": "/assets/audio/sfx_boss_b3.mp3",
+      "path": "assets/audio/sfx_boss_b3.mp3",
       "category": "sfx"
     },
     "sfx.boss.b2": {
       "key": "sfx.boss.b2",
-      "path": "/assets/audio/sfx_boss_b2.m4a",
+      "path": "assets/audio/sfx_boss_b2.m4a",
       "category": "sfx"
     },
     "sfx.hit": {
       "key": "sfx.hit",
-      "path": "/assets/audio/sfx_hit.mp3",
+      "path": "assets/audio/sfx_hit.mp3",
       "category": "sfx"
     },
     "sfx.candy.lirili": {
       "key": "sfx.candy.lirili",
-      "path": "/assets/audio/sfx_candy_lirili.mp3",
+      "path": "assets/audio/sfx_candy_lirili.mp3",
       "category": "sfx"
     },
     "sfx.candy.nugget": {
       "key": "sfx.candy.nugget",
-      "path": "/assets/audio/sfx_candy_nugget.mp3",
+      "path": "assets/audio/sfx_candy_nugget.mp3",
       "category": "sfx"
     },
     "sfx.candy.skibidi": {
       "key": "sfx.candy.skibidi",
-      "path": "/assets/audio/sfx_candy_skibidi.mp3",
+      "path": "assets/audio/sfx_candy_skibidi.mp3",
       "category": "sfx"
     },
     "sfx.boss.b1": {
       "key": "sfx.boss.b1",
-      "path": "/assets/audio/sfx_boss_b1.mp3",
+      "path": "assets/audio/sfx_boss_b1.mp3",
       "category": "sfx"
     },
     "sfx.boss.b5": {
       "key": "sfx.boss.b5",
-      "path": "/assets/audio/sfx_boss_b5.mp3",
+      "path": "assets/audio/sfx_boss_b5.mp3",
       "category": "sfx"
     },
     "sfx.boss.b4": {
       "key": "sfx.boss.b4",
-      "path": "/assets/audio/sfx_boss_b4.mp3",
+      "path": "assets/audio/sfx_boss_b4.mp3",
       "category": "sfx"
     },
     "sfx.candy.udin": {
       "key": "sfx.candy.udin",
-      "path": "/assets/audio/sfx_candy_udin.mp3",
+      "path": "assets/audio/sfx_candy_udin.mp3",
       "category": "sfx"
     }
   }

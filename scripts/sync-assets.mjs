@@ -213,7 +213,7 @@ export function runSyncAssets() {
         };
       }
 
-      const relPublicPath = `/assets/images/${outFileName}`;
+      const relPublicPath = `assets/images/${outFileName}`;
       manifest.images[key] = {
         key,
         path: relPublicPath,
@@ -258,7 +258,7 @@ export function runSyncAssets() {
 
     try {
       fs.copyFileSync(aFile, outPath);
-      const relPublicPath = `/assets/audio/${outFileName}`;
+      const relPublicPath = `assets/audio/${outFileName}`;
 
       manifest.audio[key] = {
         key,

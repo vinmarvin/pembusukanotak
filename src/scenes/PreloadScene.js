@@ -43,8 +43,8 @@ export class PreloadScene extends Phaser.Scene {
       }
     }
 
-    // Load QR image (not in manifest; lives at /assets/images/qr.jpg)
-    this.load.image('qr', '/assets/images/qr.jpg');
+    // Load QR image (not in manifest; lives at assets/images/qr.jpg)
+    this.load.image('qr', 'assets/images/qr.jpg');
 
     if (ASSETS_MANIFEST && ASSETS_MANIFEST.audio) {
       for (const [key, data] of Object.entries(ASSETS_MANIFEST.audio)) {
