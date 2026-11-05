@@ -4,6 +4,73 @@ import { AUDIO_CONFIG } from '../config/audio.config.js';
 import { SaveManager } from './SaveManager.js';
 import { EventBus } from './EventBus.js';
 
+// Looping BGM played with a native Web Audio loop (source.loop = true).
+// Phaser's own looping schedules the next loop from its game loop, which stops when the tab is hidden,
+// so a Phaser-looped track goes silent in the background. A native loop keeps playing on its own.
+class NativeLoopTrack {
+  constructor(ctx, buffer, destination, volume) {
+    this.ctx = ctx;
+    this.buffer = buffer;
+    this.gain = ctx.createGain();
+    this.gain.gain.value = volume;
+    this.gain.connect(destination);
+    this.source = null;
+    this.offset = 0;
+    this.startedAt = 0;
+    this.isPlaying = false;
+    this.isPaused = false;
+  }
+
+  _start(offset) {
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.buffer;
+    src.loop = true;
+    src.connect(this.gain);
+    src.start(0, offset);
+    this.source = src;
+    this.startedAt = this.ctx.currentTime - offset;
+    this.isPlaying = true;
+    this.isPaused = false;
+  }
+
+  _kill() {
+    if (!this.source) return;
+    try {
+      this.source.stop();
+    } catch (e) {}
+    this.source.disconnect();
+    this.source = null;
+  }
+
+  play() {
+    this._start(0);
+  }
+
+  pause() {
+    if (!this.isPlaying) return;
+    this.offset = (this.ctx.currentTime - this.startedAt) % this.buffer.duration;
+    this._kill();
+    this.isPlaying = false;
+    this.isPaused = true;
+  }
+
+  resume() {
+    if (!this.isPaused) return;
+    this._start(this.offset);
+  }
+
+  stop() {
+    this._kill();
+    this.isPlaying = false;
+    this.isPaused = false;
+    this.gain.disconnect();
+  }
+
+  setVolume(v) {
+    this.gain.gain.setValueAtTime(v, this.ctx.currentTime);
+  }
+}
+
 class AudioManagerImpl {
   constructor() {
     this._scene = null;
@@ -13,6 +80,8 @@ class AudioManagerImpl {
     this._unlocked = false;
     this._lastHitTime = 0;
     this._synthCtx = null;
+    this._backgroundAllowed = false;
+    this._exclusive = false;
   }
 
   init(scene) {
@@ -26,7 +95,8 @@ class AudioManagerImpl {
     if (typeof document !== 'undefined') {
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
-          this.pauseAll();
+          // The main menu may keep its music playing in the background; gameplay scenes always pause.
+          if (!this._backgroundAllowed) this.pauseAll();
         } else {
           this.resumeAll();
         }
@@ -144,7 +214,14 @@ class AudioManagerImpl {
     this._currentBgmKey = trackKey;
     if (this.hasAudio(trackKey)) {
       try {
-        this._currentBgm = soundManager.add(trackKey, { loop: true, volume: targetGain });
+        const buffer = this._game?.cache?.audio?.get(trackKey);
+        const ctx = soundManager.context;
+        if (ctx && soundManager.destination && typeof AudioBuffer !== 'undefined' && buffer instanceof AudioBuffer) {
+          this._currentBgm = new NativeLoopTrack(ctx, buffer, soundManager.destination, targetGain);
+        } else {
+          // HTML5 audio fallback (no Web Audio): Phaser looping
+          this._currentBgm = soundManager.add(trackKey, { loop: true, volume: targetGain });
+        }
         this._currentBgm.play();
       } catch (e) {
         console.warn('[AudioManager] Failed to play BGM:', trackKey, e);
@@ -192,7 +269,7 @@ class AudioManagerImpl {
   }
 
   playSfx(sfxKey) {
-    if (this._muted) return;
+    if (this._muted || this._exclusive) return;
 
     if (sfxKey === 'sfx.hit') {
       const now = Date.now();
@@ -216,7 +293,7 @@ class AudioManagerImpl {
   }
 
   playSynthBeep(type = 'default') {
-    if (this._muted) return;
+    if (this._muted || this._exclusive) return;
     try {
       if (!this._synthCtx) {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -257,6 +334,44 @@ class AudioManagerImpl {
     }
   }
 
+  // Main menu only: keep music playing when the tab is hidden or the window loses focus.
+  setBackgroundPlay(allowed) {
+    this._backgroundAllowed = Boolean(allowed);
+    const sm = this._getSoundManager();
+    if (sm && 'pauseOnBlur' in sm) sm.pauseOnBlur = !this._backgroundAllowed;
+  }
+
+  // True when the given track is playing and can actually be heard.
+  isBgmAudible(trackKey) {
+    if (this._muted || this.getGain(this._musicVol) <= 0) return false;
+    if (this._currentBgmKey !== trackKey || !this._currentBgm || !this._currentBgm.isPlaying) return false;
+    const sm = this._getSoundManager();
+    if (sm?.mute) return false;
+    if (sm?.context && sm.context.state !== 'running') return false;
+    return true;
+  }
+
+  // Easter egg playback: pause the music and mute every other sound until endExclusive().
+  beginExclusive() {
+    this._exclusive = true;
+    if (this._currentBgm && this._currentBgm.isPlaying) this._currentBgm.pause();
+  }
+
+  endExclusive() {
+    if (!this._exclusive) return;
+    this._exclusive = false;
+    this.resumeAll();
+  }
+
+  isExclusive() {
+    return this._exclusive;
+  }
+
+  // Volume for easter egg media: follows the SFX slider and the mute button.
+  getEggGain() {
+    return this.getGain(this._sfxVol);
+  }
+
   pauseAll() {
     if (this._currentBgm && this._currentBgm.isPlaying) {
       this._currentBgm.pause();
@@ -264,6 +379,7 @@ class AudioManagerImpl {
   }
 
   resumeAll() {
+    if (this._exclusive) return;
     if (this._currentBgm && this._currentBgm.isPaused) {
       this._currentBgm.resume();
     }

@@ -28,17 +28,11 @@ export function checkAchievements(saveData) {
     }
   }
 
-  // 2. You are fully brain rot (Easter egg): Listen to menu theme for 15 minutes (900 seconds)
-  if (!saveData.achievements.fullyBrainRot) {
-    if ((saveData.menuListenTime || 0) >= 900) {
-      saveData.achievements.fullyBrainRot = true;
-      newlyUnlocked.push('fullyBrainRot');
-    }
-  }
+  // 2. You are fully brain rot (Easter egg): unlocked by unlockFullyBrainRot() from the menu listen tracker.
 
   // 3. Score Hunter: Reach target score in Time Kill
   if (!saveData.achievements.scoreHunter) {
-    const target = GAMEPLAY.achievements.scoreHunterScore || 45000;
+    const target = GAMEPLAY.achievements.scoreHunterScore || 65000;
     if ((saveData.bestScore || 0) >= target) {
       saveData.achievements.scoreHunter = true;
       newlyUnlocked.push('scoreHunter');
@@ -66,7 +60,7 @@ export function getAchievementProgress(saveData, achievementId) {
   const isUnlocked = Boolean(saveData?.achievements && saveData.achievements[achievementId]);
 
   if (achievementId === 'scoreHunter') {
-    const target = GAMEPLAY.achievements.scoreHunterScore || 45000;
+    const target = GAMEPLAY.achievements.scoreHunterScore || 65000;
     const current = Math.min(saveData?.bestScore || 0, target);
     return { unlocked: isUnlocked, current, target };
   } else if (achievementId === 'memeCurator') {
@@ -77,3 +71,13 @@ export function getAchievementProgress(saveData, achievementId) {
   }
 }
 
+
+// "You are fully brain rot" easter egg. Returns true only when it was newly unlocked.
+export function unlockFullyBrainRot(saveData) {
+  if (!saveData) return false;
+  if (!saveData.achievements) checkAchievements(saveData);
+  if (saveData.achievements.fullyBrainRot) return false;
+  saveData.achievements.fullyBrainRot = true;
+  checkAchievements(saveData);
+  return true;
+}

@@ -49,6 +49,12 @@ export default {
     minion: 'KROCO',
     boss: 'BOS',
     freezeCountdown: 'BEKU! {sec}d',
+    casts: '{boss} MENGELUARKAN:',
+    effectName: {
+      shuffle: 'ACAK PERMEN!',
+      remove: 'MELAHAP {count} PERMEN!',
+      freeze: 'OTAK BEKU ({sec}d)!'
+    },
     effect: {
       shuffle: '{boss} mengacak permen di papan!',
       remove: '{boss} melahap {count} permen!',
@@ -104,17 +110,18 @@ export default {
     title: 'Pencapaian',
     progress: '{count} / {total}',
     unlocked: 'Terbuka',
+    toast: 'Pencapaian Terbuka!',
     freshNewBrain: {
       title: 'Fresh New Brain',
       desc: 'Selesaikan Mode Cerita'
     },
     fullyBrainRot: {
       title: 'Kamu Terkena Pembusukan Otak Penuh',
-      desc: 'Berdiam di menu utama mendengarkan musik tema selama 15 menit.'
+      desc: 'Bertahan di menu utama dengan musik tema menyala selama 15 menit tanpa henti.'
     },
     scoreHunter: {
       title: 'Score Hunter',
-      desc: 'Raih skor 45000 di Time Kill ({current}/{target})'
+      desc: 'Raih skor 65000 di Time Kill ({current}/{target})'
     },
     memeCurator: {
       title: 'Meme Curator',

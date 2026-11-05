@@ -87,7 +87,7 @@ describe('Time Kill Engine (GAME_SPEC Section 5.6 & Decisions 11-16)', () => {
     expect(tk.timeLeft).toBe(115);
   });
 
-  it('multiplies score by 5 during score multiplier and unlocks Score Hunter at 45000', () => {
+  it('multiplies score by 5 during score multiplier and unlocks Score Hunter at 65000', () => {
     const tk = new TimeKillEngine({ rng });
     tk.scoreMultRemaining = 10;
 
@@ -109,11 +109,11 @@ describe('Time Kill Engine (GAME_SPEC Section 5.6 & Decisions 11-16)', () => {
     expect(tk.score).toBe(10000);
     expect(SaveManager.data.achievements.scoreHunter).toBe(false);
 
-    // Reaching 45,000 unlocks Score Hunter
-    tk.score = 45000;
+    // Reaching 65,000 unlocks Score Hunter
+    tk.score = 65000;
     tk.finishRun();
     expect(SaveManager.data.achievements.scoreHunter).toBe(true);
-    expect(SaveManager.data.bestScore).toBe(45000);
+    expect(SaveManager.data.bestScore).toBe(65000);
   });
 
   it('awards combo bonus exactly once (+5s) regardless of number of cascades', () => {

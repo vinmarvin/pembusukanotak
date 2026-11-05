@@ -4,9 +4,9 @@ import { THEME } from '../config/theme.config.js';
 import { Popup } from './Popup.js';
 import { Button } from './Button.js';
 import { InkText } from './InkText.js';
-import { AssetResolver } from '../systems/AssetResolver.js';
 import { AudioManager } from '../systems/AudioManager.js';
 import { SaveManager } from '../systems/SaveManager.js';
+import { TutorialIllustration } from './TutorialIllustrations.js';
 import { t } from '../i18n/index.js';
 
 export class TutorialPopup {
@@ -23,6 +23,7 @@ export class TutorialPopup {
     this.popup = new Popup(scene, pw, ph, {
       title: t('tutorial.title') || 'Tutorial',
       onClose: () => {
+        this.stopIllustration();
         if (options.onClose) options.onClose();
       }
     });
@@ -105,74 +106,15 @@ export class TutorialPopup {
       }
     }
 
-    // Update illustration
+    // Update illustration (animated, shared with the other tutorial entry point)
+    if (this.illustration) this.illustration.destroy();
     this.illusContainer.removeAll(true);
+    this.illustration = new TutorialIllustration(scene, this.illusContainer, this.step, { pw: pw, ph: ph });
 
-    if (this.step === 0) {
-      // Step 1: Match 3 candies in a row
-      const candyTypes = [0, 0, 0];
-      candyTypes.forEach((type, idx) => {
-        const tex = AssetResolver.getCandyKey(scene, type);
-        const spr = scene.add.sprite((idx - 1) * 64, 0, tex);
-        spr.setDisplaySize(52, 52);
-        this.illusContainer.add(spr);
-      });
-      // Swap hint arrow
-      const arrow = scene.add.text(96, 0, '↔️', { fontSize: '26px' }).setOrigin(0.5);
-      this.illusContainer.add(arrow);
-
-      this.titleText.setText(t('tutorial.step1.title'));
-      this.descText.setText(t('tutorial.step1.desc'));
-      this.nextBtn.setText(t('common.next'));
-    } else if (this.step === 1) {
-      // Step 2: Damage combat
-      const candyTex = AssetResolver.getCandyKey(scene, 1);
-      const candySpr = scene.add.sprite(-75, 0, candyTex);
-      candySpr.setDisplaySize(52, 52);
-
-      const hitArrow = scene.add.text(-20, 0, '💥 ➔', { fontSize: '22px' }).setOrigin(0.5);
-
-      const minionTex = AssetResolver.getMinionKey(scene, 'small');
-      const minionSpr = scene.add.sprite(65, 0, minionTex);
-      minionSpr.setDisplaySize(58, 58);
-
-      const dmgNum = scene.add.text(65, -32, '-15', {
-        fontFamily: THEME.fonts.hud,
-        fontSize: '18px',
-        color: THEME.colors.slimeGreenHex,
-        stroke: THEME.colors.inkHex,
-        strokeThickness: 3
-      }).setOrigin(0.5);
-
-      this.illusContainer.add([candySpr, hitArrow, minionSpr, dmgNum]);
-
-      this.titleText.setText(t('tutorial.step2.title'));
-      this.descText.setText(t('tutorial.step2.desc'));
-      this.nextBtn.setText(t('common.next'));
-    } else {
-      // Step 3: Enemy countdown and Boss effects
-      const bossTex = AssetResolver.getBossKey(scene, 'b1');
-      const bossSpr = scene.add.sprite(0, -15, bossTex);
-      bossSpr.setDisplaySize(68, 68);
-
-      const warnBg = scene.add.graphics();
-      warnBg.fillStyle(THEME.colors.punchMagenta, 1);
-      warnBg.fillRoundedRect(-85, 30, 170, 24, 6);
-      warnBg.lineStyle(2, THEME.colors.ink, 1);
-      warnBg.strokeRoundedRect(-85, 30, 170, 24, 6);
-
-      const warnText = scene.add.text(0, 42, '⏱️ ATTACK: 03.0s', {
-        fontFamily: THEME.fonts.hud,
-        fontSize: '12px',
-        color: '#FFFFFF'
-      }).setOrigin(0.5);
-
-      this.illusContainer.add([bossSpr, warnBg, warnText]);
-
-      this.titleText.setText(t('tutorial.step3.title'));
-      this.descText.setText(t('tutorial.step3.desc'));
-      this.nextBtn.setText(t('tutorial.gotIt'));
-    }
+    const keys = ['step1', 'step2', 'step3'];
+    this.titleText.setText(t(`tutorial.${keys[this.step]}.title`));
+    this.descText.setText(t(`tutorial.${keys[this.step]}.desc`));
+    this.nextBtn.setText(this.step < 2 ? t('common.next') : t('tutorial.gotIt'));
   }
 
   advanceStep() {
@@ -185,8 +127,16 @@ export class TutorialPopup {
     }
   }
 
+  stopIllustration() {
+    if (this.illustration) {
+      this.illustration.destroy();
+      this.illustration = null;
+    }
+  }
+
   close() {
     AudioManager.playSfx('sfx.click');
+    this.stopIllustration();
     SaveManager.update((s) => {
       s.tutorialSeen = true;
     });
@@ -200,6 +150,7 @@ export class TutorialPopup {
   }
 
   destroy() {
+    this.stopIllustration();
     if (this.popup) {
       this.popup.destroy();
     }

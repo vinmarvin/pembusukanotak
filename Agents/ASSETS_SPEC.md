@@ -26,9 +26,11 @@ Normalize names first: lowercase, letters and digits only (`Tung_Tung-Sahur.png`
 
 **Minions** (folder hint: `minion`, `kroco`, `enemy`, `monster`): size from `small`/`kecil`/`s`, `medium`/`sedang`/`m`, `large`/`big`/`besar`/`l`; area from a digit in `area`, `stage`, `a` or `s` + number, or from the area names. There should be 15 (3 sizes x 5 areas) but the count may differ. If names do not say area and size, sort the files by path and assign area-major, size order small, medium, large; log it as a Decision; the owner can correct it in `assets.map.js`. Display name = cleaned file name (Title Case).
 
-**Optional images**: `logo`; `player` or `otak` (the "Otak Sehat" portrait); `qr` (donation QR); `meme` or `book` (Meme Book polaroid image; if absent, use the boss or candy art); `ach` or `emblem` (achievement emblems; if absent, draw icon badges).
+**Optional images**: `logo`; `player` or `otak` (the "Otak Sehat" portrait); `qr` (donation QR); `meme` or `book` (Meme Book polaroid image; if absent, use the boss or candy art); `ach` or `emblem` (achievement emblems; if absent, draw icon badges). Boss effect banner icons: a file name with `effect`/`efek` (or starting with `fx`) plus `shuffle`/`acak` -> `fx.shuffle`, `devour`/`remove`/`lahap`/`eat` -> `fx.remove10`, `freeze`/`beku`/`ice`/`frozen` -> `fx.freeze` (checked before boss names); if absent, the emoji from `src/config/effects.config.js` is used. Max stored size 256 px; fitted contain inside the banner's square badge.
 
 **Audio keys**: `bgm.menu` (`menu`, `start`, `title`, `main`), `bgm.story` (`story`), `bgm.timekill` (`timekill`, `time kill`, `timekiller`, `tk`), `sfx.hit` (`hit`, `damage`), `sfx.boss.b1` to `sfx.boss.b5` (same hints as the bosses above, `b5` first), `sfx.minion.<name>` (a monster file whose name matches a minion name). Optional if present: `sfx.match`, `sfx.swap`, `sfx.invalid`, `sfx.win`, `sfx.lose`, `sfx.click`, `sfx.powerup`, `sfx.freeze`. Missing optional sfx get short generated sounds. Missing bgm means silence for that scene.
+
+**Easter egg media** (`easteregg/`, owner folder, read-only like `visual/` and `audio/`): copied as-is to `public/assets/easteregg/` and listed under `easterEggs` in the manifest. `67`/`earrape` -> `egg.c67`; `ambatukam`/`termuwani` -> `egg.ambatukam`; `skibid`/`jumpscare` -> `egg.skibidi` (video). A missing file just disables that egg.
 
 ## 4. Size normalization (assets have different sizes; in game they must look consistent)
 - Never stretch: scaleX always equals scaleY.

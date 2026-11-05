@@ -17,6 +17,7 @@ import { TutorialPopup } from '../ui/TutorialPopup.js';
 import { BoardView } from '../ui/BoardView.js';
 import { SpriteFit } from '../ui/SpriteFit.js';
 import { BossEffectOverlay } from '../ui/BossEffectOverlay.js';
+import { fireOrb, hitReact, damagePop, burst, worldPos } from '../ui/AttackFx.js';
 import { LayoutManager } from '../systems/LayoutManager.js';
 import { InputManager } from '../systems/InputManager.js';
 import { AssetResolver } from '../systems/AssetResolver.js';
@@ -46,6 +47,10 @@ export class BattleScene extends Phaser.Scene {
     const isDebug = new URLSearchParams(window.location.search).get('debug') === '1';
     this.fight = new FightEngine(this.stage, { rng, isDebug });
     this.bossCasting = false;
+    this.castInProgress = false;
+    this.moveInFlight = false;
+    this.wasFrozen = false;
+    this.pendingBossEffects = [];
 
     // 2. Initialize match-3 board
     this.boardGrid = createBoard(this.cols, this.rows, rng);
@@ -191,11 +196,15 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
+  // Turn order when the boss attacks during a player move (owner rule):
+  // 1) boss damage lands at once, 2) the player's in-flight move resolves and deals its damage,
+  // 3) only then the boss effect (shuffle / devour / freeze) is cast on the settled board.
   handleSwap({ r1, c1, r2, c2 }) {
-    if (this.boardView.isAnimating || this.fight.isFrozen || this.fight.isGameOver || this.fight.isStageComplete) {
+    if (this.moveInFlight || this.bossCasting || this.boardView.isAnimating || this.fight.isFrozen || this.fight.isGameOver || this.fight.isStageComplete) {
       return;
     }
 
+    this.moveInFlight = true;
     this.inputManager.setEnabled(false);
     this.boardView.setSelected(null);
 
@@ -203,9 +212,7 @@ export class BattleScene extends Phaser.Scene {
       const result = resolveMove(this.boardGrid, { r1, c1, r2, c2 }, rng, { isTimeKill: false });
 
       if (!result.valid) {
-        this.boardView.animateRevert(r1, c1, r2, c2, () => {
-          this.inputManager.setEnabled(true);
-        });
+        this.boardView.animateRevert(r1, c1, r2, c2, () => this.finishMove());
         return;
       }
 
@@ -219,40 +226,74 @@ export class BattleScene extends Phaser.Scene {
 
       this.boardView.animateSteps(
         result.steps,
-        (step) => {
-          // Player attacks enemy
-          const defRes = this.fight.dealPlayerDamage(step.cleared.length);
-          this.enemyHpGauge.setValue(this.fight.enemyHp);
-
-          // Show damage numbers and flash
-          const enemyPos = this.getEnemyCardWorldPos();
-          this.showFloatingText(enemyPos.x, enemyPos.y, `-${defRes.damage}`, THEME.colors.slimeGreenHex);
-          this.flashSprite(this.enemyPortrait, THEME.colors.slimeGreen);
-
-          if (defRes.defeated) {
-            this.handleEnemyDefeated(defRes);
-          }
-        },
+        (step) => this.applyStepDamage(step),
         () => {
           if (result.reshuffled) {
-            this.boardView.animateReshuffle(this.boardGrid, () => {
-              if (!this.fight.isFrozen && !this.fight.isGameOver) {
-                this.inputManager.setEnabled(true);
-              }
-            });
+            this.boardView.animateReshuffle(this.boardGrid, () => this.finishMove());
           } else {
-            if (!this.fight.isFrozen && !this.fight.isGameOver) {
-              this.inputManager.setEnabled(true);
-            }
+            this.finishMove();
           }
         }
       );
     });
   }
 
+  finishMove() {
+    this.moveInFlight = false;
+    if (this.runPendingBossEffect()) return;
+    this.checkRestoreInput();
+  }
+
+  // Damage is applied to the fight state at once (rules stay exact); the HP bar,
+  // damage number and hit reaction land when the first orb reaches the enemy.
+  applyStepDamage(step) {
+    const enemyIdx = this.fight.enemyIndex;
+    const defRes = this.fight.dealPlayerDamage(step.cleared.length);
+    if (defRes.damage <= 0 && !defRes.defeated) return;
+
+    this.fireAttackOrbs(step.cleared, () => {
+      const pos = worldPos(this.enemyPortrait);
+      damagePop(this, pos.x, pos.y - 20, `-${defRes.damage}`, THEME.colors.arcadeYellowHex);
+      if (defRes.defeated) {
+        this.handleEnemyDefeated(defRes);
+      } else if (this.fight.enemyIndex === enemyIdx) {
+        this.enemyHpGauge.setValue(this.fight.enemyHp);
+      }
+    });
+  }
+
+  fireAttackOrbs(cells, onFirstHit) {
+    const max = THEME.fx.maxOrbsPerStep;
+    const stepSize = Math.max(1, cells.length / max);
+    const picks = [];
+    for (let i = 0; i < cells.length && picks.length < max; i += stepSize) {
+      picks.push(cells[Math.floor(i)]);
+    }
+    let first = true;
+    const target = worldPos(this.enemyPortrait);
+    picks.forEach((cell, i) => {
+      const from = this.boardView.getCellWorld(cell.r, cell.c);
+      burst(this, from.x, from.y, THEME.colors.arcadeYellow, 5, 20);
+      fireOrb(this, from, target, {
+        delay: i * THEME.fx.orbStaggerMs,
+        onHit: () => {
+          const now = worldPos(this.enemyPortrait);
+          burst(this, now.x, now.y, THEME.colors.punchMagenta, 6, 30);
+          hitReact(this, this.enemyPortrait);
+          if (first) {
+            first = false;
+            onFirstHit();
+          }
+        }
+      });
+    });
+    if (picks.length === 0) onFirstHit();
+  }
+
   handleEnemyDefeated(defRes) {
     AudioManager.playSfx('sfx.win');
     if (defRes.stageComplete) {
+      this.pendingBossEffects = [];
       SaveManager.update((s) => {
         recordBossDefeat(s, `b${this.stage}`);
         checkAchievements(s);
@@ -276,7 +317,16 @@ export class BattleScene extends Phaser.Scene {
     const enemyTex = enemy.isBoss
       ? AssetResolver.getBossKey(this, enemy.assetKey)
       : AssetResolver.getMinionKey(this, enemy.assetKey);
+    this.tweens.killTweensOf(this.enemyPortrait);
+    this.enemyPortrait._hitShaking = false;
+    this.enemyPortrait._biting = false;
+    this.enemyPortrait.clearTint();
     this.enemyPortrait.setTexture(enemyTex);
+    if (this.enemyPortraitBox) {
+      const b = this.enemyPortraitBox;
+      this.enemyPortrait.setPosition(b.x, b.y);
+      SpriteFit.fitContain(this.enemyPortrait, b.w, b.h);
+    }
 
     this.enemyHpGauge.setValue(this.fight.enemyHp, enemy.maxHp);
     this.countdownGauge.setValue(this.fight.countdown, enemy.intervalSec);
@@ -287,17 +337,22 @@ export class BattleScene extends Phaser.Scene {
 
     const deltaSec = delta / 1000;
 
-    // Tick combat clock
-    const attackEvent = this.fight.tick(deltaSec, this.boardGrid);
+    // Tick combat clock. No grid is passed: boss effects are cast later by runPendingBossEffect().
+    const attackEvent = this.fight.tick(deltaSec);
 
     // Update countdown gauge
     this.countdownGauge.setValue(this.fight.countdown);
 
-    // Update freeze display
-    this.bossOverlay.setFreeze(this.fight.isFrozen, this.fight.freezeTime);
-    if (this.fight.isFrozen && this.inputManager.enabled) {
+    // Freeze display and icy candies
+    const frozen = this.fight.isFrozen;
+    if (frozen !== this.wasFrozen) {
+      this.wasFrozen = frozen;
+      this.boardView.setFrozenTint(frozen);
+    }
+    this.bossOverlay.setFreeze(frozen, this.fight.freezeTime);
+    if (frozen && this.inputManager.enabled) {
       this.inputManager.setEnabled(false);
-    } else if (!this.fight.isFrozen && !this.inputManager.enabled && !this.boardView.isAnimating && !this.bossCasting) {
+    } else if (!frozen && !this.inputManager.enabled && !this.boardView.isAnimating && !this.bossCasting && !this.moveInFlight) {
       this.inputManager.setEnabled(true);
     }
 
@@ -305,58 +360,118 @@ export class BattleScene extends Phaser.Scene {
       this.handleEnemyAttack(attackEvent);
     }
 
-    if (!this.boardView.isAnimating && !this.fight.isFrozen && !this.bossCasting) {
+    if (!this.boardView.isAnimating && !frozen && !this.bossCasting && !this.moveInFlight) {
       this.boardView.setSelected(this.inputManager.selectedCell);
     }
   }
 
   handleEnemyAttack(attackEvent) {
-    // Enemy damages player
-    this.playerHpGauge.setValue(attackEvent.playerHp);
-    const playerPos = this.getPlayerCardWorldPos();
-    this.showFloatingText(playerPos.x, playerPos.y, `-${attackEvent.damage}`, THEME.colors.punchMagentaHex);
-    this.flashSprite(this.playerPortrait, THEME.colors.punchMagenta);
+    // 1. Enemy damage lands now (logic). The visual is a magenta orb from enemy to player.
+    const from = worldPos(this.enemyPortrait);
+    const to = worldPos(this.playerPortrait);
+    fireOrb(this, from, to, {
+      color: THEME.colors.punchMagenta,
+      arc: -40,
+      onHit: () => {
+        this.playerHpGauge.setValue(attackEvent.playerHp);
+        damagePop(this, to.x, to.y - 20, `-${attackEvent.damage}`, THEME.colors.punchMagentaHex);
+        burst(this, to.x, to.y, THEME.colors.punchMagenta, 7, 30);
+        hitReact(this, this.playerPortrait);
+      }
+    });
 
     if (attackEvent.attacker === 'boss') {
       AudioManager.playBossSfx(this.stage);
-
-      // Disable player input and clear selection while boss attack is executing
-      this.bossCasting = true;
-      this.inputManager.setEnabled(false);
-      this.boardView.setSelected(null);
-
-      // Boss special effect banner
-      this.bossOverlay.showBanner(attackEvent.enemy.name, attackEvent.effect, () => {
-        if (attackEvent.effect === 'shuffle') {
-          this.boardView.animateReshuffle(this.boardGrid, () => {
-            this.bossCasting = false;
-            if (!this.fight.isFrozen) {
-              this.inputManager.setEnabled(true);
-            }
-          });
-        } else if (attackEvent.effect === 'remove10' && attackEvent.effectResult) {
-          this.boardView.animateDevour(attackEvent.effectResult, this.boardGrid, () => {
-            this.bossCasting = false;
-            if (!this.fight.isFrozen) {
-              this.inputManager.setEnabled(true);
-            }
-          });
-        } else {
-          this.bossCasting = false;
-          if (!this.fight.isFrozen) {
-            this.inputManager.setEnabled(true);
-          }
-        }
-      });
     } else {
       AudioManager.playSfx('sfx.hit');
     }
 
     if (attackEvent.isGameOver) {
-      this.time.delayedCall(400, () => {
+      this.inputManager.setEnabled(false);
+      this.time.delayedCall(THEME.fx.orbFlightMs + 400, () => {
         this.scene.start('GameOver', { stage: this.stage });
       });
+      return;
     }
+
+    // 2. Boss effect is queued; it is cast once any in-flight player move has resolved.
+    if (attackEvent.attacker === 'boss' && attackEvent.effect) {
+      this.pendingBossEffects.push({ bossName: attackEvent.enemy.name, effect: attackEvent.effect });
+      // No new move may start now; a move already in progress finishes first.
+      this.bossCasting = true;
+      this.inputManager.setEnabled(false);
+      this.boardView.setSelected(null);
+      if (!this.moveInFlight && !this.boardView.isAnimating) {
+        this.runPendingBossEffect();
+      }
+    }
+  }
+
+  // Casts the next queued boss effect. Returns true if a cast started.
+  runPendingBossEffect() {
+    if (this.castInProgress) return true;
+    if (!this.pendingBossEffects.length) {
+      return false;
+    }
+    if (this.fight.isStageComplete || this.fight.isGameOver || !this.fight.enemy.isBoss) {
+      this.pendingBossEffects = [];
+      this.bossCasting = false;
+      return false;
+    }
+
+    const { bossName, effect } = this.pendingBossEffects.shift();
+    this.castInProgress = true;
+    this.bossCasting = true;
+    this.inputManager.setEnabled(false);
+    this.boardView.setSelected(null);
+
+    const done = () => {
+      this.castInProgress = false;
+      if (this.runPendingBossEffect()) return;
+      this.bossCasting = false;
+      this.checkRestoreInput();
+    };
+
+    this.bossOverlay.showBanner(bossName, effect, () => {
+      const result = this.fight.castBossEffect(effect, this.boardGrid);
+      if (!result) {
+        done();
+      } else if (effect === 'shuffle') {
+        this.boardView.animateBossShuffle(this.boardGrid, done);
+      } else if (effect === 'remove10') {
+        this.boardView.animateDevour(result, this.boardGrid, done, {
+          targetWorld: worldPos(this.enemyPortrait),
+          onBite: () => this.bossBite()
+        });
+      } else {
+        // Freeze: update() picks up fight.isFrozen and plays the ice effect.
+        done();
+      }
+    });
+    return true;
+  }
+
+  // Boss "chomp" as each devoured candy arrives.
+  bossBite() {
+    const p = this.enemyPortrait;
+    if (!p || !p.scene) return;
+    const pos = worldPos(p);
+    burst(this, pos.x, pos.y, THEME.colors.arcadeYellow, 4, 18);
+    if (p._biting) return;
+    p._biting = true;
+    const sy = p.scaleY;
+    const sx = p.scaleX;
+    this.tweens.add({
+      targets: p,
+      scaleY: sy * 0.82,
+      scaleX: sx * 1.12,
+      duration: 70,
+      yoyo: true,
+      onComplete: () => {
+        p.setScale(sx, sy);
+        p._biting = false;
+      }
+    });
   }
 
   showFloatingText(x, y, text, color) {
@@ -466,7 +581,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   checkRestoreInput() {
-    if (!this.currentPopup && !this.fight.isGameOver && !this.fight.isStageComplete && !this.fight.isFrozen && !this.boardView.isAnimating && !this.bossCasting) {
+    if (!this.currentPopup && !this.fight.isGameOver && !this.fight.isStageComplete && !this.fight.isFrozen && !this.boardView.isAnimating && !this.bossCasting && !this.moveInFlight) {
       this.inputManager.setEnabled(true);
     }
   }
@@ -565,8 +680,9 @@ export class BattleScene extends Phaser.Scene {
     this.enemyPanel.resize(cardW, cardH);
     this.enemyPanel.setPosition(fZone.width * 0.28, 0);
     this.enemyName.setPosition(fZone.width * 0.28, -cardH * 0.32);
-    this.enemyPortrait.setPosition(fZone.width * 0.28 + cardW * 0.28, 6);
-    SpriteFit.fitContain(this.enemyPortrait, cardW * 0.35, cardH * 0.6);
+    this.enemyPortraitBox = { x: fZone.width * 0.28 + cardW * 0.28, y: 6, w: cardW * 0.35, h: cardH * 0.6 };
+    this.enemyPortrait.setPosition(this.enemyPortraitBox.x, this.enemyPortraitBox.y);
+    SpriteFit.fitContain(this.enemyPortrait, this.enemyPortraitBox.w, this.enemyPortraitBox.h);
     this.enemyHpGauge.setPosition(fZone.width * 0.28 - cardW * 0.15, 6);
     this.enemyHpGauge.resize(cardW * 0.5, Math.max(16, cardH * 0.25));
 

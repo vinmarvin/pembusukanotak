@@ -131,7 +131,7 @@ Salin seluruh isi folder `dist/` langsung ke folder root web server Anda (`/var/
    - Dilengkapi cerita orisinal, tombol putar efek suara resmi (`🔊 SFX`), dan status terkunci/terbuka.
 4. **Pencapaian (Achievements)**:
 
-   - 5 pencapaian tantangan: *Fresh New Brain*, *Score Hunter (45.000 skor)*, *Meme Curator*, *Support Creator*, dan achievement rahasia *You are fully brain rot*.
+   - 5 pencapaian tantangan: *Fresh New Brain*, *Score Hunter (65.000 skor)*, *Meme Curator*, *Support Creator*, dan achievement rahasia *You are fully brain rot*.
 5. **Pengaturan & Audio**:
 
    - Slider volume live untuk Musik & SFX, tombol Mute cepat di bilah atas, dan pergantian instan Bahasa Indonesia / English.

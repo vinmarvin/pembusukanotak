@@ -1,7 +1,7 @@
 # Assets Synchronization Report
-Generated at: 2026-11-02T14:06:09.645Z
+Generated at: 2026-11-05T07:28:47.427Z
 
-## Mapped Assets (31)
+## Mapped Assets (34)
 | Source File | Logical Key | Kind | Category | Original | Trimmed | Output |
 |---|---|---|---|---|---|---|
 | `visual\BigMinion.png` | `large` | image | minion | 479x383 | 424x378 | 424x378 |
@@ -35,12 +35,18 @@ Generated at: 2026-11-02T14:06:09.645Z
 | `audio\sfx_Trippa Troppa Tralala Lirila Tung Tung Sahur Boneca Crocodina.mp3` | `sfx.boss.b5` | audio | sfx | 132302 bytes | N/A | assets/audio/sfx_boss_b5.mp3 |
 | `audio\sfx_Tung Tung sahur.mp3` | `sfx.boss.b4` | audio | sfx | 50711 bytes | N/A | assets/audio/sfx_boss_b4.mp3 |
 | `audio\sfx_Udin Din Din Dun.mp3` | `sfx.candy.udin` | audio | sfx | 33053 bytes | N/A | assets/audio/sfx_candy_udin.mp3 |
+| `easteregg\67 earrape.mp3` | `egg.c67` | audio | easteregg | 69215 bytes | N/A | assets/easteregg/egg_c67.mp3 |
+| `easteregg\Ambatukam Termuwani.mp3` | `egg.ambatukam` | audio | easteregg | 57189 bytes | N/A | assets/easteregg/egg_ambatukam.mp3 |
+| `easteregg\SkibidJumpScare.mp4` | `egg.skibidi` | video | easteregg | 1063589 bytes | N/A | assets/easteregg/egg_skibidi.mp4 |
 
 ## Unmatched Files (0)
 *None. All files matched successfully.*
 
-## Missing Keys (1)
+## Missing Keys (4)
 - `optional: qr`
+- `optional: fx.shuffle (emoji icon used)`
+- `optional: fx.remove10 (emoji icon used)`
+- `optional: fx.freeze (emoji icon used)`
 
 ## Assets Lacking Transparency (0)
 *None. All sprite assets contain transparency.*

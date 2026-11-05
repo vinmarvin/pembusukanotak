@@ -23,10 +23,11 @@ function getDirChecksums(dir) {
 }
 
 describe('Read-Only Originals Integrity (ASSETS_SPEC & Phase 1 Gate)', () => {
-  it('does not modify, move, or rename any file in visual/, audio/, or design/', () => {
+  it('does not modify, move, or rename any file in visual/, audio/, design/, or easteregg/', () => {
     const visualBefore = getDirChecksums('visual');
     const audioBefore = getDirChecksums('audio');
     const designBefore = getDirChecksums('design');
+    const eggBefore = getDirChecksums('easteregg');
 
     // Run sync-assets again
     runSyncAssets();
@@ -34,10 +35,12 @@ describe('Read-Only Originals Integrity (ASSETS_SPEC & Phase 1 Gate)', () => {
     const visualAfter = getDirChecksums('visual');
     const audioAfter = getDirChecksums('audio');
     const designAfter = getDirChecksums('design');
+    const eggAfter = getDirChecksums('easteregg');
 
     expect(visualAfter).toEqual(visualBefore);
     expect(audioAfter).toEqual(audioBefore);
     expect(designAfter).toEqual(designBefore);
+    expect(eggAfter).toEqual(eggBefore);
   });
 });
 

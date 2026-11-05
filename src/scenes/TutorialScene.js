@@ -10,8 +10,8 @@ import { LocalizedText } from '../ui/LocalizedText.js';
 import { LayoutManager } from '../systems/LayoutManager.js';
 import { AudioManager } from '../systems/AudioManager.js';
 import { SaveManager } from '../systems/SaveManager.js';
-import { AssetResolver } from '../systems/AssetResolver.js';
 import { EventBus } from '../systems/EventBus.js';
+import { TutorialIllustration } from '../ui/TutorialIllustrations.js';
 import { t } from '../i18n/index.js';
 
 export class TutorialScene extends Phaser.Scene {
@@ -47,6 +47,10 @@ export class TutorialScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       if (this.unsubLayout) this.unsubLayout();
       if (this.unsubLang) this.unsubLang();
+      if (this.illustration) {
+        this.illustration.destroy();
+        this.illustration = null;
+      }
     });
   }
 
@@ -54,10 +58,16 @@ export class TutorialScene extends Phaser.Scene {
     const { width, height } = layout;
     this.topBar.updateLayout(width, 64);
 
+    if (this.illustration) {
+      this.illustration.destroy();
+      this.illustration = null;
+    }
     this.container.removeAll(true);
 
     const pw = Math.min(width * 0.9, 500);
     const ph = Math.min(height * 0.82, 460);
+    this.pw = pw;
+    this.ph = ph;
 
     this.dialog = this.add.container(width / 2, height / 2 + 20);
 
@@ -143,74 +153,15 @@ export class TutorialScene extends Phaser.Scene {
       }
     }
 
-    // Update illustration
+    // Update illustration (animated, shared with the other tutorial entry point)
+    if (this.illustration) this.illustration.destroy();
     this.illusContainer.removeAll(true);
+    this.illustration = new TutorialIllustration(this, this.illusContainer, this.step, { pw: this.pw, ph: this.ph });
 
-    if (this.step === 0) {
-      // Step 1: Match 3 candies in a row
-      const candyTypes = [0, 0, 0];
-      candyTypes.forEach((type, idx) => {
-        const tex = AssetResolver.getCandyKey(this, type);
-        const spr = this.add.sprite((idx - 1) * 70, 0, tex);
-        spr.setDisplaySize(56, 56);
-        this.illusContainer.add(spr);
-      });
-      // Swap hint arrow
-      const arrow = this.add.text(105, 0, '↔️', { fontSize: '28px' }).setOrigin(0.5);
-      this.illusContainer.add(arrow);
-
-      this.titleText.setText(t('tutorial.step1.title'));
-      this.descText.setText(t('tutorial.step1.desc'));
-      this.nextBtn.setText(t('common.next'));
-    } else if (this.step === 1) {
-      // Step 2: Damage combat
-      const candyTex = AssetResolver.getCandyKey(this, 1);
-      const candySpr = this.add.sprite(-80, 0, candyTex);
-      candySpr.setDisplaySize(56, 56);
-
-      const hitArrow = this.add.text(-20, 0, '💥 ➔', { fontSize: '24px' }).setOrigin(0.5);
-
-      const minionTex = AssetResolver.getMinionKey(this, 'small');
-      const minionSpr = this.add.sprite(70, 0, minionTex);
-      minionSpr.setDisplaySize(64, 64);
-
-      const dmgNum = this.add.text(70, -35, '-15', {
-        fontFamily: THEME.fonts.hud,
-        fontSize: '20px',
-        color: THEME.colors.slimeGreenHex,
-        stroke: THEME.colors.inkHex,
-        strokeThickness: 3
-      }).setOrigin(0.5);
-
-      this.illusContainer.add([candySpr, hitArrow, minionSpr, dmgNum]);
-
-      this.titleText.setText(t('tutorial.step2.title'));
-      this.descText.setText(t('tutorial.step2.desc'));
-      this.nextBtn.setText(t('common.next'));
-    } else {
-      // Step 3: Enemy countdown and Boss effects
-      const bossTex = AssetResolver.getBossKey(this, 'b1');
-      const bossSpr = this.add.sprite(0, -15, bossTex);
-      bossSpr.setDisplaySize(72, 72);
-
-      const warnBg = this.add.graphics();
-      warnBg.fillStyle(THEME.colors.punchMagenta, 1);
-      warnBg.fillRoundedRect(-90, 35, 180, 24, 6);
-      warnBg.lineStyle(2, THEME.colors.ink, 1);
-      warnBg.strokeRoundedRect(-90, 35, 180, 24, 6);
-
-      const warnText = this.add.text(0, 47, '⏱️ ATTACK: 03.0s', {
-        fontFamily: THEME.fonts.hud,
-        fontSize: '12px',
-        color: '#FFFFFF'
-      }).setOrigin(0.5);
-
-      this.illusContainer.add([bossSpr, warnBg, warnText]);
-
-      this.titleText.setText(t('tutorial.step3.title'));
-      this.descText.setText(t('tutorial.step3.desc'));
-      this.nextBtn.setText(t('tutorial.gotIt'));
-    }
+    const keys = ['step1', 'step2', 'step3'];
+    this.titleText.setText(t(`tutorial.${keys[this.step]}.title`));
+    this.descText.setText(t(`tutorial.${keys[this.step]}.desc`));
+    this.nextBtn.setText(this.step < 2 ? t('common.next') : t('tutorial.gotIt'));
   }
 
   advanceStep() {

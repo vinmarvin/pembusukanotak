@@ -350,5 +350,22 @@ export const ASSETS_MANIFEST = {
       "path": "assets/audio/sfx_candy_udin.mp3",
       "category": "sfx"
     }
+  },
+  "easterEggs": {
+    "egg.c67": {
+      "key": "egg.c67",
+      "kind": "audio",
+      "path": "assets/easteregg/egg_c67.mp3"
+    },
+    "egg.ambatukam": {
+      "key": "egg.ambatukam",
+      "kind": "audio",
+      "path": "assets/easteregg/egg_ambatukam.mp3"
+    },
+    "egg.skibidi": {
+      "key": "egg.skibidi",
+      "kind": "video",
+      "path": "assets/easteregg/egg_skibidi.mp4"
+    }
   }
 };

@@ -12,9 +12,11 @@ import {
 } from '../../src/core/unlocks/memebook.js';
 import {
   checkAchievements,
+  unlockFullyBrainRot,
   getAchievementProgress,
   ACHIEVEMENTS_LIST
 } from '../../src/core/unlocks/achievements.js';
+import { MENU_LISTEN, createMenuListenState, stepMenuListen } from '../../src/core/unlocks/menuListen.js';
 import { StoryProgression } from '../../src/core/progression/story.js';
 import { SaveManager } from '../../src/systems/SaveManager.js';
 import { GAMEPLAY } from '../../src/config/gameplay.config.js';
@@ -100,25 +102,55 @@ describe('Phase 6 Unlocks & Achievements Core', () => {
       expect(save.achievements.freshNewBrain).toBe(true);
     });
 
-    it('You are fully brain rot unlocks when listening to menu theme for 15 minutes', () => {
-      SaveManager.reset();
-      const save = SaveManager.data;
-      save.menuListenTime = 899;
-      checkAchievements(save);
-      expect(save.achievements.fullyBrainRot).toBe(false);
-
-      save.menuListenTime = 900;
-      checkAchievements(save);
-      expect(save.achievements.fullyBrainRot).toBe(true);
+    it('You are fully brain rot needs 15 minutes of audible menu music in one sitting', () => {
+      const cfg = { targetSec: 900, maxGapSec: 5 };
+      let st = { ...createMenuListenState(), wasAudible: true };
+      for (let i = 0; i < 899; i++) st = stepMenuListen(st, { dtSec: 1, audible: true }, cfg);
+      expect(st.reached).toBe(false);
+      st = stepMenuListen(st, { dtSec: 1, audible: true }, cfg);
+      expect(st.reached).toBe(true);
     });
 
-    it('Score Hunter unlocks at 45000 or more in Time Kill', () => {
+    it('menu listen ignores muted time, including the tick right after unmuting', () => {
+      const cfg = { targetSec: 900, maxGapSec: 5 };
+      let st = { ...createMenuListenState(), wasAudible: true };
+      st = stepMenuListen(st, { dtSec: 1, audible: true }, cfg);
+      st = stepMenuListen(st, { dtSec: 1, audible: false }, cfg);
+      st = stepMenuListen(st, { dtSec: 1, audible: true }, cfg);
+      expect(st.sittingSec).toBe(1);
+      st = stepMenuListen(st, { dtSec: 1, audible: true }, cfg);
+      expect(st.sittingSec).toBe(2);
+    });
+
+    it('menu listen caps long gaps (sleep or frozen tab)', () => {
+      const cfg = { targetSec: 900, maxGapSec: 5 };
+      const st = stepMenuListen({ sittingSec: 0, wasAudible: true }, { dtSec: 3600, audible: true }, cfg);
+      expect(st.sittingSec).toBe(5);
+      expect(st.reached).toBe(false);
+    });
+
+    it('menu listen uses the 15 minute target from config', () => {
+      expect(MENU_LISTEN.targetSec).toBe(15 * 60);
+    });
+
+    it('unlockFullyBrainRot unlocks once and old menuListenTime no longer unlocks it', () => {
+      SaveManager.reset();
+      const save = SaveManager.data;
+      save.menuListenTime = 5000;
+      checkAchievements(save);
+      expect(save.achievements.fullyBrainRot).toBe(false);
+      expect(unlockFullyBrainRot(save)).toBe(true);
+      expect(save.achievements.fullyBrainRot).toBe(true);
+      expect(unlockFullyBrainRot(save)).toBe(false);
+    });
+
+    it('Score Hunter unlocks at 65000 or more in Time Kill', () => {
       const save = SaveManager.data;
       save.bestScore = 44900;
       checkAchievements(save);
       expect(save.achievements.scoreHunter).toBe(false);
 
-      save.bestScore = 45000;
+      save.bestScore = 65000;
       const newly = checkAchievements(save);
       expect(newly).toContain('scoreHunter');
       expect(save.achievements.scoreHunter).toBe(true);

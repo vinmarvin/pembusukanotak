@@ -38,6 +38,17 @@ describe('Asset Classification (ASSETS_SPEC Phase 1 Gate)', () => {
     expect(classifyAsset('BigMinion.png').key).toBe('large');
   });
 
+  it('classifies optional boss effect icons only when the name says effect', () => {
+    expect(classifyAsset('visual/effect_shuffle.png').key).toBe('fx.shuffle');
+    expect(classifyAsset('visual/fx-devour.png').key).toBe('fx.remove10');
+    expect(classifyAsset('visual/efek beku.png').key).toBe('fx.freeze');
+    expect(classifyAsset('visual/effect_tralalelo_freeze.png').key).toBe('fx.freeze');
+    expect(classifyAsset('visual/effects/Ice Effect.png').key).toBe('fx.freeze');
+    // Boss and candy art is unaffected
+    expect(classifyAsset('visual/boss_Tralalelo Tralala.png').key).toBe('b1');
+    expect(classifyAsset('visual/candy_67.png').key).toBe('c67');
+  });
+
   it('correctly classifies audio file names', () => {
     expect(classifyAsset('bgm_menu.mp3').key).toBe('bgm.menu');
     expect(classifyAsset('bgm_story.mp3').key).toBe('bgm.story');

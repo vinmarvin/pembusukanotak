@@ -101,6 +101,22 @@ function classifyAudio(norm, originalPath) {
 }
 
 function classifyVisual(norm, originalPath) {
+  // 0. Optional boss effect icons: the file name must say effect/efek (or start with fx) plus the effect.
+  //    e.g. effect_shuffle.png, fx-devour.png, efek beku.png. Checked first so boss names in the file
+  //    name (effect_tralalelo_shuffle.png) do not turn it into a boss portrait.
+  const fileNorm = normalizeName(originalPath.split(/[/\\]/).pop());
+  if (fileNorm.startsWith('fx') || fileNorm.includes('effect') || fileNorm.includes('efek')) {
+    if (fileNorm.includes('shuffle') || fileNorm.includes('acak')) {
+      return { key: 'fx.shuffle', kind: 'image', category: 'effect' };
+    }
+    if (fileNorm.includes('devour') || fileNorm.includes('remove') || fileNorm.includes('lahap') || fileNorm.includes('eat')) {
+      return { key: 'fx.remove10', kind: 'image', category: 'effect' };
+    }
+    if (fileNorm.includes('freeze') || fileNorm.includes('beku') || fileNorm.includes('ice') || fileNorm.includes('frozen')) {
+      return { key: 'fx.freeze', kind: 'image', category: 'effect' };
+    }
+  }
+
   // 1. Bosses: Check b5 first because b5 name contains tralala, lirila, tung tung sahur, boneca!
   if (
     norm.includes('trippa') ||
@@ -165,3 +181,27 @@ function classifyVisual(norm, originalPath) {
   return null;
 }
 
+
+// Easter egg media in easteregg/ (owner folder, read-only). Matched by file name.
+//   "67 earrape.mp3"            -> egg.c67       (audio)
+//   "Ambatukam Termuwani.mp3"   -> egg.ambatukam (audio)
+//   "SkibidJumpScare.mp4"       -> egg.skibidi   (video)
+export function classifyEasterEgg(filePath) {
+  const fileName = filePath.split(/[/\\]/).pop();
+  const norm = normalizeName(fileName);
+  const isVideo = /\.(mp4|webm|mov|m4v)$/i.test(fileName);
+  const isAudio = /\.(mp3|m4a|wav|ogg|aac)$/i.test(fileName);
+  if (!isVideo && !isAudio) return null;
+  const kind = isVideo ? 'video' : 'audio';
+
+  if (norm.includes('skibid') || norm.includes('jumpscare') || norm.includes('toilet')) {
+    return { key: 'egg.skibidi', kind, category: 'easteregg' };
+  }
+  if (norm.includes('ambatukam') || norm.includes('termuwani') || norm.includes('ambalabu') || norm.includes('bear')) {
+    return { key: 'egg.ambatukam', kind, category: 'easteregg' };
+  }
+  if (norm.includes('67') || norm.includes('sixseven') || norm.includes('earrape')) {
+    return { key: 'egg.c67', kind, category: 'easteregg' };
+  }
+  return null;
+}

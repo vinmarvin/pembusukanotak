@@ -95,6 +95,56 @@ describe('Combat System & Boss Effects (GAME_SPEC Section 5)', () => {
   });
 });
 
+describe('Boss attack turn order (owner rule: boss damage, then player move, then boss effect)', () => {
+  const bossFight = (seed) => {
+    const fight = new FightEngine(1, { rng: new RNG(seed) });
+    fight.initEnemy(5);
+    return fight;
+  };
+
+  it('a boss attack without a grid deals damage now and defers the effect', () => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const fight = bossFight(seed);
+      const attack = fight.tick(fight.enemy.intervalSec);
+      expect(attack.attacker).toBe('boss');
+      expect(attack.damage).toBe(5);
+      expect(fight.playerHp).toBe(95);
+      expect(attack.effectResult).toBeNull();
+      expect(fight.isFrozen).toBe(false);
+    }
+  });
+
+  it('player damage between the attack and the cast still counts', () => {
+    const fight = bossFight(3);
+    fight.tick(fight.enemy.intervalSec);
+    const hpBefore = fight.enemyHp;
+    fight.dealPlayerDamage(3);
+    expect(fight.enemyHp).toBe(hpBefore - 3 * fight.playerAttack);
+  });
+
+  it('castBossEffect applies freeze and board effects later', () => {
+    const fight = bossFight(5);
+    const frozen = fight.castBossEffect('freeze', null);
+    expect(frozen.type).toBe('freeze');
+    expect(fight.isFrozen).toBe(true);
+    expect(fight.freezeTime).toBe(5);
+
+    const grid = createBoard(8, 7, new RNG(9));
+    const res = fight.castBossEffect('remove10', grid);
+    expect(res.removedCells.length).toBe(10);
+    expect(grid.flat().every((c) => c !== null)).toBe(true);
+  });
+
+  it('no effect is cast after the boss is defeated', () => {
+    const fight = bossFight(7);
+    fight.tick(fight.enemy.intervalSec);
+    fight.dealPlayerDamage(1000);
+    expect(fight.isStageComplete).toBe(true);
+    expect(fight.castBossEffect('freeze', null)).toBeNull();
+    expect(fight.isFrozen).toBe(false);
+  });
+});
+
 describe('Balance Reference Simulation (GAME_SPEC Section 5.10)', () => {
   it('verifies all 5 stages clear within the player HP budget according to formula', () => {
     const expectedTable = [

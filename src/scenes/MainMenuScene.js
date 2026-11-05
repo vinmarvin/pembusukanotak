@@ -16,8 +16,16 @@ import { AudioManager } from '../systems/AudioManager.js';
 import { SaveManager } from '../systems/SaveManager.js';
 import { AssetResolver } from '../systems/AssetResolver.js';
 import { EventBus } from '../systems/EventBus.js';
-import { checkAchievements } from '../core/unlocks/achievements.js';
 import { ACHIEVEMENTS_CONFIG } from '../config/achievements.config.js';
+import { MenuListenTracker } from '../systems/MenuListenTracker.js';
+import { showAchievementToast } from '../ui/AchievementToast.js';
+import { EasterEggPlayer } from '../systems/EasterEggPlayer.js';
+import { EASTER_EGGS_CONFIG } from '../config/eastereggs.config.js';
+import { createEggCounts, registerEggClick } from '../core/eastereggs.js';
+import { SpriteFit } from '../ui/SpriteFit.js';
+
+// Click counts live for the whole browser session, so leaving the menu does not lose progress.
+const eggCounts = createEggCounts();
 import { getLanguage, setLanguage, t } from '../i18n/index.js';
 
 export class MainMenuScene extends Phaser.Scene {
@@ -32,8 +40,13 @@ export class MainMenuScene extends Phaser.Scene {
       return;
     }
 
-    // Play menu BGM
+    // Play menu BGM (allowed to keep playing when the tab is in the background)
     AudioManager.playBgm('bgm.menu');
+    AudioManager.setBackgroundPlay(true);
+
+    // Easter egg: 15 minutes of menu music in one sitting
+    this.listenTracker = new MenuListenTracker({ onUnlock: () => this.onFullyBrainRotUnlocked() });
+    this.listenTracker.start();
 
     // Top Bar
     this.topBar = new TopBar(this, {
@@ -48,18 +61,25 @@ export class MainMenuScene extends Phaser.Scene {
     // Decorative floating candies & minions (Bug 5: replaces grey circles)
     this.decorItems = [];
     const decors = [
-      { key: AssetResolver.getCandyKey(this, 'c67'), size: 60, angle: -12, dx: 0, dy: 10, dur: 2200 },
-      { key: AssetResolver.getCandyKey(this, 'bluberini'), size: 64, angle: 15, dx: 0, dy: -12, dur: 2600 },
-      { key: AssetResolver.getMinionKey(this, 'small'), size: 68, angle: 8, dx: 6, dy: 8, dur: 2400 },
-      { key: AssetResolver.getCandyKey(this, 'skibidi'), size: 58, angle: -10, dx: -8, dy: 10, dur: 2000 }
+      { key: AssetResolver.getCandyKey(this, 'c67'), egg: 'c67', size: 60, angle: -12, dx: 0, dy: 10, dur: 2200 },
+      { key: AssetResolver.getCandyKey(this, 'bluberini'), egg: null, size: 64, angle: 15, dx: 0, dy: -12, dur: 2600 },
+      { key: AssetResolver.getMinionKey(this, 'small'), egg: 'small', size: 68, angle: 8, dx: 6, dy: 8, dur: 2400 },
+      { key: AssetResolver.getCandyKey(this, 'skibidi'), egg: 'skibidi', size: 58, angle: -10, dx: -8, dy: 10, dur: 2000 }
     ];
+
+    // Easter eggs: some decor icons are silent buttons (no hand cursor, no hover, no bounce)
+    this.eggPlayer = new EasterEggPlayer(this);
 
     decors.forEach((d) => {
       const spr = this.add.sprite(0, 0, d.key);
-      spr.setDisplaySize(d.size, d.size);
+      SpriteFit.fitContain(spr, d.size, d.size);
       spr.setAngle(d.angle);
       this.decorContainer.add(spr);
       this.decorItems.push({ spr, ...d });
+      if (d.egg) {
+        spr.setInteractive();
+        spr.on('pointerdown', () => this.onEggIconClick(d.egg));
+      }
 
       this.tweens.add({
         targets: spr,
@@ -153,29 +173,24 @@ export class MainMenuScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       if (this.unsubLayout) this.unsubLayout();
       if (this.unsubSettings) this.unsubSettings();
-      if (this.menuListenTimer > 0) {
-        const remaining = this.menuListenTimer;
-        this.menuListenTimer = 0;
-        SaveManager.update((s) => {
-          s.menuListenTime = (s.menuListenTime || 0) + remaining;
-          checkAchievements(s);
-        });
-      }
+      AudioManager.setBackgroundPlay(false);
+      if (this.listenTracker) this.listenTracker.stop();
     });
   }
 
-  update(time, delta) {
-    if (delta > 0) {
-      this.menuListenTimer = (this.menuListenTimer || 0) + delta / 1000;
-      if (this.menuListenTimer >= 2) {
-        const added = this.menuListenTimer;
-        this.menuListenTimer = 0;
-        SaveManager.update((s) => {
-          s.menuListenTime = (s.menuListenTime || 0) + added;
-          checkAchievements(s);
-        });
-      }
-    }
+  onEggIconClick(id) {
+    if (this.currentPopup || this.eggPlayer.isPlaying()) return;
+    const egg = registerEggClick(eggCounts, id, EASTER_EGGS_CONFIG.eggs);
+    if (egg) this.eggPlayer.play(egg);
+  }
+
+  onFullyBrainRotUnlocked() {
+    const ach = ACHIEVEMENTS_CONFIG.list.find((a) => a.id === 'fullyBrainRot');
+    AudioManager.playSfx('sfx.win');
+    showAchievementToast(this, { icon: ach.icon, titleKey: ach.titleKey });
+    const save = SaveManager.data;
+    const achCount = ACHIEVEMENTS_CONFIG.list.filter((a) => Boolean(save.achievements && save.achievements[a.id])).length;
+    if (this.achBtn && this.achBtn.subText) this.achBtn.subText.setParams({ unlocked: achCount });
   }
 
   createModeCard({ titleKey, subKey, subParams = {}, color, icon, onClick }) {
@@ -206,6 +221,7 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     btn.contentContainer.add([iconTxt, title, sub]);
+    btn.subText = sub;
     return btn;
   }
 

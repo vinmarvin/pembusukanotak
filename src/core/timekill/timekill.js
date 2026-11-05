@@ -119,7 +119,7 @@ export class TimeKillEngine {
       this.bestScore = this.score;
     }
 
-    // Check Score Hunter achievement (10000 points)
+    // Check Score Hunter achievement
     if (this.score >= GAMEPLAY.achievements.scoreHunterScore) {
       SaveManager.update((s) => {
         if (!s.achievements) s.achievements = {};

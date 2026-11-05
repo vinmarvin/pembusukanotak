@@ -5,6 +5,7 @@ import { THEME } from '../config/theme.config.js';
 import { InkText } from '../ui/InkText.js';
 import { Gauge } from '../ui/Gauge.js';
 import { ASSETS_MANIFEST } from '../config/assets.generated.js';
+import { loadEasterEggMedia } from '../systems/EasterEggPlayer.js';
 
 export class PreloadScene extends Phaser.Scene {
   constructor() {
@@ -51,6 +52,9 @@ export class PreloadScene extends Phaser.Scene {
         this.load.audio(key, data.path);
       }
     }
+
+    // Main-menu easter egg media (easteregg/ folder)
+    loadEasterEggMedia(this.load);
   }
 
   create() {

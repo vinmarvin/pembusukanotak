@@ -578,52 +578,255 @@ export class BoardView extends Phaser.GameObjects.Container {
     }
   }
 
-  animateDevour(effectResult, finalGrid, onComplete) {
+  // World position of a cell centre (the board container is never scaled).
+  getCellWorld(r, c) {
+    const p = this.getCellCoords(r, c);
+    return { x: this.x + p.x, y: this.y + p.y };
+  }
+
+  allCandySprites() {
+    const out = [];
+    for (const row of this.sprites) for (const s of row) if (s) out.push(s);
+    return out;
+  }
+
+  // Icy tint on every candy while the boss freeze is active.
+  setFrozenTint(on) {
+    this.frozenTint = on;
+    for (const s of this.allCandySprites()) {
+      if (on) s.setTint(0x9feaff, 0x9feaff, 0xe6fbff, 0xe6fbff);
+      else s.clearTint();
+    }
+  }
+
+  // Boss shuffle: every candy spirals into a vortex at the board centre, then flies out to its new cell.
+  animateBossShuffle(grid, onComplete) {
     this.isAnimating = true;
-    AudioManager.playSfx('sfx.hit');
+    this.setSelected(null);
+    AudioManager.playSfx('sfx.powerup');
+    const fx = THEME.fx;
+
+    const sprites = this.allCandySprites();
+    sprites.forEach((s) => this.scene.tweens.killTweensOf(s));
+
+    if (prefersReducedMotion() || sprites.length === 0) {
+      this.initGrid(grid, this.boardMetrics);
+      this.isAnimating = false;
+      if (onComplete) onComplete();
+      return;
+    }
+
+    const radius = Math.min(this.boardMetrics.boardWidth, this.boardMetrics.boardHeight) * 0.42;
+    const vortex = this.scene.add.graphics();
+    this.add(vortex);
+    const drawVortex = (rot, alpha) => {
+      vortex.clear();
+      for (let k = 0; k < 3; k++) {
+        vortex.lineStyle(5 - k, k === 1 ? THEME.colors.arcadeYellow : THEME.colors.punchMagenta, alpha * (1 - k * 0.2));
+        vortex.beginPath();
+        for (let i = 0; i <= 40; i++) {
+          const t = i / 40;
+          const a = rot + k * ((Math.PI * 2) / 3) + t * Math.PI * 2.2;
+          const rr = radius * (1 - t);
+          const px = Math.cos(a) * rr;
+          const py = Math.sin(a) * rr;
+          if (i === 0) vortex.moveTo(px, py);
+          else vortex.lineTo(px, py);
+        }
+        vortex.strokePath();
+      }
+    };
+    const spin = { rot: 0, alpha: 0 };
+    const total = fx.shuffleGatherMs + fx.shuffleScatterMs + 200;
+    this.scene.tweens.add({
+      targets: spin,
+      rot: Math.PI * 6,
+      duration: total,
+      onUpdate: () => drawVortex(spin.rot, spin.alpha)
+    });
+    this.scene.tweens.add({ targets: spin, alpha: 0.85, duration: 200 });
+    try {
+      this.scene.cameras.main.shake(fx.shuffleGatherMs, 0.004);
+    } catch (e) {}
+
+    const scatter = () => {
+      this.initGrid(grid, this.boardMetrics);
+      const fresh = this.allCandySprites();
+      let landed = 0;
+      fresh.forEach((s) => {
+        const tx = s.x;
+        const ty = s.y;
+        const ts = s.scaleX;
+        s.setPosition(0, 0).setScale(ts * 0.3).setAngle(-360).setAlpha(0.2);
+        this.scene.tweens.add({
+          targets: s,
+          x: tx,
+          y: ty,
+          scaleX: ts,
+          scaleY: ts,
+          angle: 0,
+          alpha: 1,
+          duration: fx.shuffleScatterMs,
+          delay: Math.hypot(tx, ty) * 0.25,
+          ease: 'Back.easeOut',
+          onComplete: () => {
+            landed++;
+            if (landed === fresh.length) {
+              this.scene.tweens.add({
+                targets: spin,
+                alpha: 0,
+                duration: 150,
+                onComplete: () => {
+                  vortex.destroy();
+                  this.isAnimating = false;
+                  if (onComplete) onComplete();
+                }
+              });
+            }
+          }
+        });
+      });
+    };
+
+    // Gather: spiral inward
+    let gathered = 0;
+    sprites.forEach((s) => {
+      const startA = Math.atan2(s.y, s.x);
+      const startR = Math.hypot(s.x, s.y);
+      const st = { t: 0 };
+      const baseScale = s.scaleX;
+      this.scene.tweens.add({
+        targets: st,
+        t: 1,
+        duration: fx.shuffleGatherMs,
+        delay: Math.random() * 120,
+        ease: 'Cubic.easeIn',
+        onUpdate: () => {
+          const a = startA + st.t * Math.PI * 1.5;
+          const rr = startR * (1 - st.t);
+          s.setPosition(Math.cos(a) * rr, Math.sin(a) * rr);
+          s.setScale(baseScale * (1 - 0.7 * st.t));
+          s.setAngle(st.t * 360);
+        },
+        onComplete: () => {
+          gathered++;
+          if (gathered === sprites.length) scatter();
+        }
+      });
+    });
+  }
+
+  // Boss devour: target rings mark the victims, they wobble, then get sucked into the boss portrait.
+  // options.targetWorld: where the boss is; options.onBite(): called as each candy arrives.
+  animateDevour(effectResult, finalGrid, onComplete, options = {}) {
+    this.isAnimating = true;
+    this.setSelected(null);
+    const fx = THEME.fx;
 
     const removed = effectResult?.removedCells || [];
-    const targets = [];
+    const victims = [];
     for (const cell of removed) {
       const s = this.sprites[cell.r]?.[cell.c];
       if (s) {
-        targets.push(s);
+        victims.push(s);
         this.sprites[cell.r][cell.c] = null;
       }
     }
 
-    if (targets.length > 0) {
-      this.scene.tweens.add({
-        targets,
-        scaleX: 0,
-        scaleY: 0,
-        alpha: 0,
-        duration: 200,
-        ease: 'Back.easeIn',
-        onComplete: () => {
-          targets.forEach((s) => {
-            if (s.powerMarker) s.powerMarker.destroy();
-            if (s.codeLabel) s.codeLabel.destroy();
-            s.destroy();
-          });
-          if (effectResult?.falls && effectResult.falls.length > 0) {
-            this.executeFallsAndSpawns(effectResult.falls, effectResult.spawns || [], () => {
-              this.initGrid(finalGrid, this.boardMetrics);
-              this.isAnimating = false;
-              if (onComplete) onComplete();
-            });
-          } else {
-            this.initGrid(finalGrid, this.boardMetrics);
-            this.isAnimating = false;
-            if (onComplete) onComplete();
-          }
-        }
-      });
-    } else {
-      this.initGrid(finalGrid, this.boardMetrics);
-      this.isAnimating = false;
-      if (onComplete) onComplete();
+    const finish = () => {
+      const settleGrid = () => {
+        this.initGrid(finalGrid, this.boardMetrics);
+        this.isAnimating = false;
+        if (onComplete) onComplete();
+      };
+      if (effectResult?.falls?.length || effectResult?.spawns?.length) {
+        this.executeFallsAndSpawns(effectResult.falls || [], effectResult.spawns || [], settleGrid);
+      } else {
+        settleGrid();
+      }
+    };
+
+    const destroySprite = (s) => {
+      if (s.powerMarker) s.powerMarker.destroy();
+      if (s.codeLabel) s.codeLabel.destroy();
+      s.destroy();
+    };
+
+    if (victims.length === 0) {
+      finish();
+      return;
     }
+
+    if (prefersReducedMotion()) {
+      victims.forEach(destroySprite);
+      finish();
+      return;
+    }
+
+    // 1. Mark victims with pulsing target rings and a wobble
+    const cellSize = this.boardMetrics.cellSize;
+    const rings = this.scene.add.graphics();
+    this.add(rings);
+    const ringState = { p: 0 };
+    this.scene.tweens.add({
+      targets: ringState,
+      p: 1,
+      duration: fx.devourMarkMs,
+      onUpdate: () => {
+        rings.clear();
+        const pulse = 0.5 + 0.5 * Math.sin(ringState.p * Math.PI * 4);
+        rings.lineStyle(3, THEME.colors.punchMagenta, 0.6 + 0.4 * pulse);
+        rings.fillStyle(THEME.colors.punchMagenta, 0.18 + 0.12 * pulse);
+        for (const s of victims) {
+          const rr = cellSize * (0.55 - 0.1 * ringState.p);
+          rings.fillCircle(s.x, s.y, rr);
+          rings.strokeCircle(s.x, s.y, rr);
+        }
+      }
+    });
+    victims.forEach((s) => {
+      this.scene.tweens.add({ targets: s, angle: { from: -12, to: 12 }, duration: 70, yoyo: true, repeat: Math.floor(fx.devourMarkMs / 140) });
+    });
+
+    // 2. Suck them into the boss along curved paths
+    const target = options.targetWorld || { x: this.x, y: this.y - this.boardMetrics.boardHeight };
+    const local = { x: target.x - this.x, y: target.y - this.y };
+    this.scene.time.delayedCall(fx.devourMarkMs, () => {
+      rings.destroy();
+      let arrived = 0;
+      victims.forEach((s, i) => {
+        this.scene.tweens.killTweensOf(s);
+        s.setAngle(0);
+        this.candiesContainer.bringToTop(s);
+        const fromX = s.x;
+        const fromY = s.y;
+        const ctrl = { x: (fromX + local.x) / 2 + (Math.random() - 0.5) * cellSize * 3, y: Math.min(fromY, local.y) - cellSize };
+        const st = { t: 0 };
+        const baseScale = s.scaleX;
+        this.scene.tweens.add({
+          targets: st,
+          t: 1,
+          delay: i * fx.devourStaggerMs,
+          duration: fx.devourFlightMs,
+          ease: 'Cubic.easeIn',
+          onUpdate: () => {
+            const u = 1 - st.t;
+            s.setPosition(
+              u * u * fromX + 2 * u * st.t * ctrl.x + st.t * st.t * local.x,
+              u * u * fromY + 2 * u * st.t * ctrl.y + st.t * st.t * local.y
+            );
+            s.setScale(baseScale * (1 - 0.75 * st.t));
+            s.setAngle(st.t * 540);
+          },
+          onComplete: () => {
+            destroySprite(s);
+            if (options.onBite) options.onBite();
+            arrived++;
+            if (arrived === victims.length) finish();
+          }
+        });
+      });
+    });
   }
 }
 

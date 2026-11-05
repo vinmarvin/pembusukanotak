@@ -49,6 +49,12 @@ export default {
     minion: 'MINION',
     boss: 'BOSS',
     freezeCountdown: 'FROZEN! {sec}s',
+    casts: '{boss} CASTS:',
+    effectName: {
+      shuffle: 'CANDY SHUFFLE!',
+      remove: 'DEVOURED {count} CANDIES!',
+      freeze: 'BRAIN FREEZE ({sec}s)!'
+    },
     effect: {
       shuffle: '{boss} shuffled the candies!',
       remove: '{boss} devoured {count} candies!',
@@ -104,17 +110,18 @@ export default {
     title: 'Achievements',
     progress: '{count} / {total}',
     unlocked: 'Unlocked',
+    toast: 'Achievement Unlocked!',
     freshNewBrain: {
       title: 'Fresh New Brain',
       desc: 'Finish Story Mode'
     },
     fullyBrainRot: {
       title: 'You are fully brain rot',
-      desc: 'Stayed in the main menu listening to the theme music for 15 minutes.'
+      desc: 'Stayed on the main menu with the theme music playing for 15 minutes straight.'
     },
     scoreHunter: {
       title: 'Score Hunter',
-      desc: 'Reach 45000 score in Time Kill ({current}/{target})'
+      desc: 'Reach 65000 score in Time Kill ({current}/{target})'
     },
     memeCurator: {
       title: 'Meme Curator',

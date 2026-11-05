@@ -71,7 +71,7 @@ tests/               mirrors src/core, plus i18n and assets tests
 | 15 | Power-ups: line break (row or column through the power-up cell, orientation random by `rng.game`); bomb (4x4 area containing the power-up cell, shifted to stay inside the board); time freeze (countdown paused 15 s); score x5 (candy points x5 for 10 s, re-activation refreshes to 10 s). |
 | 16 | Time Kill has no time cap. The run ends when the timer is 0 or below, including after a penalty. Best score is saved. |
 | 17 | Meme Book: 11 entries in this order: 5 bosses (stage 1 to 5) then 6 candies (67, nugget roblox, Skibidi toilet, Lirilì Larilà, udin din din dun, Bluberini Octopusini). Counters are cumulative across both modes and saved. A candy entry unlocks at 100 destroyed candies of that type. A boss entry unlocks the first time that boss is defeated. Locked entries show a silhouette, the unlock hint, and progress (for example 37/100). |
-| 18 | Fast Hand (owner to confirm): finish Story Mode in one clean run with zero game overs. `save.gameOversSinceStage1Start` resets to 0 whenever Stage 1 is started from the stage select and increases on every game over; the achievement unlocks when Stage 5 is cleared with that value at 0. (A literal zero-damage run is impossible: the Stage 1 boss attacks after 10 s, and 250 HP at 2 damage per candy needs 125 candies in under 10 s.) |
+| 18 | You are fully brain rot (owner, secret easter egg, replaces Fast Hand): stay on the main menu with the menu music audible (not muted, music volume above 0, audio running) for 15 minutes in one sitting. Leaving the main menu or reloading resets the sitting; muted time does not count. Time is measured by wall clock, so it keeps counting while the tab is in the background; a single tick gap is capped at `listenMaxGapSec` (sleep or frozen tab). Unlocking shows an "Achievement Unlocked" toast on the main menu. Values live in `ACHIEVEMENTS_CONFIG` (`targetMinutes`, `listenMaxGapSec`, `listenTickMs`). Only the main menu music plays in the background; Battle and Time Kill still pause when hidden (decision 4). |
 | 19 | Languages: English and Indonesian, switchable live in Settings, saved, default English. Game title, boss names, candy names, and area names are not translated. Meme lore is owner-written Indonesian (`CONTENT_LORE.md`); the English lore is the agent's translation. |
 | 20 | Minion, boss, and candy visuals come from the owner's `visual/` folder (`ASSETS_SPEC.md`). Minion display names are derived from file names. A missing visual becomes a generated placeholder. |
 | 21 | Story text (intro before Stage 1, one short text per area, ending), at most 3 lines each, drafted by the agent in both languages and tagged `[DRAFT - owner to verify]` in code comments. |
@@ -84,6 +84,8 @@ tests/               mirrors src/core, plus i18n and assets tests
 | 28 | Area names: Dopamine Drip (1), Endless Scroll (2), Subway Surfer (3), area 4 drafted by the agent, Brainrot Meltdown (5). Player name on the battle card: "Otak Sehat". |
 | 29 | Stage 5 boss HP is 350 (owner's chat message). The design text file says 300; the value is a single config field `enemies.boss.hpStage5`. |
 | 30 | The UI follows the mockups in `design/` (layout, colors, fonts, components), with the corrections in `DESIGN_REFERENCE.md` section 6. |
+| 31 | Boss attack turn order (owner): when the boss countdown hits 0, the boss damage lands at once. A player move already in progress then resolves fully and deals its damage. Only after the board settles is the boss effect (shuffle, remove 10, freeze) cast, with its banner; no new move can start from the attack until the cast ends. If that move defeats the boss, the effect is dropped. `FightEngine.tick(dt)` without a grid returns the effect; `castBossEffect(effect, grid)` applies it. |
+| 32 | Main-menu easter eggs (owner): the floating decor icons are silent buttons (no hand cursor, hover, bounce or colour change). Clicking the 67 candy 67 times plays `egg.c67` (67 earrape); the bear-like small minion 42 times plays `egg.ambatukam` (Ambatukam Termuwani); the Skibidi toilet 82 times plays `egg.skibidi` (SkibidJumpScare video) in a centred popup with no close button that closes itself when the video ends. While an egg plays, music and every other sound are silenced and all menu buttons ignore input. Click counts last for the browser session and reset after the egg fires. Egg volume follows the SFX slider and the mute button. Values in `src/config/eastereggs.config.js`; media from the owner's read-only `easteregg/` folder. |
 
 ## 4. Config (`src/config/gameplay.config.js`, copy exactly; tuning means editing config files only)
 
@@ -105,7 +107,7 @@ export const GAMEPLAY = {
     freezeSec: 15, scoreMultiplier: 5, scoreMultiplierSec: 10, bombSize: 4
   },
   memeBook: { candyUnlockCount: 100 },
-  achievements: { scoreHunterScore: 10000 },
+  achievements: { scoreHunterScore: 65000 },
   balanceSim: { secondsPerMatch: 4, candiesPerMatch: 3 },
   debug: { allowQueryFlag: true, attackMultiplier: 10 }
 };
@@ -146,7 +148,7 @@ Fight order per stage: small, small, medium, medium, large, then the boss. Fight
 
 ### 5.4 Fight loop (`core/combat/fight.js`)
 - Each step of a resolved move deals `attack x cleared` damage. If the enemy HP reaches 0, stop the damage, resolve the rest of the board silently, then the enemy is defeated (heal to full, next enemy). Boss defeated: Meme Book boss unlock. Stage 5 boss defeated: story complete.
-- Each enemy attack: player HP -= damage; boss attacks also trigger one random effect and play that boss's SFX; minion attacks play the hit SFX. Player HP <= 0 is a game over (decision 8).
+- Each enemy attack: player HP -= damage; boss attacks also trigger one random effect (cast after any in-flight player move resolves, decision 31) and play that boss's SFX; minion attacks play the hit SFX. Player HP <= 0 is a game over (decision 8).
 - Fight logic takes an injected clock, so tests can use a fake clock.
 
 ### 5.5 Bosses
@@ -169,14 +171,14 @@ Timer 120 s. Rules are decisions 5, 11 to 16. Power-up effects are decision 15.
 
 ### 5.8 Meme Book and achievements
 - Meme Book: each entry is a 2-page spread: left = brainrot image (polaroid), right = lore (two paragraphs from `CONTENT_LORE.md`). Rules are decision 17.
-- Achievements: Fresh New Brain (finish Story Mode); Fast Hand (decision 18); Score Hunter (10000 score in Time Kill); Meme Curator (all 11 entries unlocked); Support Creator (click the donation button).
+- Achievements: Fresh New Brain (finish Story Mode); You are fully brain rot (secret, decision 18); Score Hunter (65000 score in Time Kill); Meme Curator (all 11 entries unlocked); Support Creator (click the donation button).
 
 ### 5.9 Save object
 ```js
 { version: 1, stageCleared: 0, gameOversSinceStage1Start: 0, storyCompleted: false,
   candyDestroyed: { c67: 0, nugget: 0, skibidi: 0, lirili: 0, udin: 0, bluberini: 0 },
   bossDefeated: { b1: false, b2: false, b3: false, b4: false, b5: false },
-  achievements: { freshNewBrain: false, fastHand: false, scoreHunter: false,
+  achievements: { freshNewBrain: false, fullyBrainRot: false, scoreHunter: false,
                   memeCurator: false, supportCreator: false },
   bestScore: 0, tutorialSeen: false,
   settings: { musicVolume: 70, sfxVolume: 80, muted: false, language: 'en' } }

@@ -42,6 +42,21 @@ export const THEME = {
     panelRadius: 24,
     cardRadius: 18
   },
-  showCandyCodes: false
+  showCandyCodes: false,
+  toast: { holdMs: 3500, slideInMs: 380, slideOutMs: 300 },
+  // Battle visual effects (visual timing only; no gameplay numbers)
+  fx: {
+    orbFlightMs: 420,
+    orbStaggerMs: 45,
+    maxOrbsPerStep: 6,
+    shuffleGatherMs: 380,
+    shuffleScatterMs: 420,
+    devourMarkMs: 420,
+    devourFlightMs: 380,
+    devourStaggerMs: 45,
+    freezeInMs: 320,
+    thawMs: 380,
+    bannerHoldMs: 1100
+  }
 };
 

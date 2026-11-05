@@ -13,13 +13,17 @@ export const ACHIEVEMENTS_CONFIG = {
       descKey: 'achievements.fullyBrainRot.desc',
       icon: '💀',
       secret: true,
-      targetMinutes: 15
+      // Minutes of menu music in one sitting (leaving the main menu resets it).
+      targetMinutes: 15,
+      // Longest gap between two listen ticks that still counts (laptop sleep, frozen tab).
+      listenMaxGapSec: 5,
+      listenTickMs: 1000
     },
     {
       id: 'scoreHunter',
       titleKey: 'achievements.scoreHunter.title',
       descKey: 'achievements.scoreHunter.desc',
-      targetScore: 45000,
+      targetScore: 65000,
       icon: '🎯'
     },
     {

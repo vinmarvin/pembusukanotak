@@ -3,6 +3,7 @@
 import { statsForStage } from './stats.js';
 import { enemyFor } from './enemy.js';
 import { chooseBossEffect, applyBossEffect } from './bossEffects.js';
+import { GAMEPLAY } from '../../config/gameplay.config.js';
 
 export class FightEngine {
   constructor(stage = 1, options = {}) {
@@ -87,6 +88,18 @@ export class FightEngine {
     return null;
   }
 
+  // Apply a boss effect: freeze starts the input freeze; shuffle / remove10 change the grid in place.
+  castBossEffect(effect, boardGrid) {
+    if (this.isGameOver || this.isStageComplete) return null;
+    if (effect === 'freeze') {
+      this.isFrozen = true;
+      this.freezeTime = GAMEPLAY.bossEffects.freezeSec;
+      return { type: 'freeze', durationSec: this.freezeTime };
+    }
+    if (!boardGrid) return null;
+    return applyBossEffect(effect, boardGrid, this.rng);
+  }
+
   triggerEnemyAttack(boardGrid = null) {
     this.countdown = this.enemy.intervalSec;
 
@@ -97,12 +110,10 @@ export class FightEngine {
     if (this.enemy.isBoss) {
       damage = this.enemy.dmg; // 5
       effect = chooseBossEffect(this.rng);
-      if (effect === 'freeze') {
-        this.isFrozen = true;
-        this.freezeTime = 5;
-      }
-      if (boardGrid && (effect === 'shuffle' || effect === 'remove10')) {
-        effectResult = applyBossEffect(effect, boardGrid, this.rng);
+      // With a grid, the effect lands at once (pure/test path). Without one, the caller casts it
+      // later with castBossEffect(), after the player's in-flight move has resolved.
+      if (boardGrid) {
+        effectResult = this.castBossEffect(effect, boardGrid);
       }
     } else {
       // Minion: random integer 2, 3, or 4
