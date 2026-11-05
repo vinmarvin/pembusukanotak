@@ -8,6 +8,7 @@ import { SpriteFit } from './SpriteFit.js';
 import { AssetResolver } from '../systems/AssetResolver.js';
 import { AudioManager } from '../systems/AudioManager.js';
 import { prefersReducedMotion } from '../core/reducedMotion.js';
+import { decoratePowerCandy, reapplyPowerTint } from './PowerCandyLook.js';
 
 export class BoardView extends Phaser.GameObjects.Container {
   constructor(scene, cols, rows, options = {}) {
@@ -45,6 +46,21 @@ export class BoardView extends Phaser.GameObjects.Container {
     this.add(this.reshuffleText);
 
     scene.add.existing(this);
+
+    // Power markers (x5 badge, line stripes) follow their candy every frame, so they stay on it
+    // during swaps, falls, pops and shuffles without every animation having to move them.
+    this.syncMarkers = () => {
+      for (const child of this.candiesContainer.list) {
+        const m = child.powerMarker;
+        if (m && m.active) {
+          m.setPosition(child.x, child.y);
+          m.setAlpha(child.alpha);
+          m.setVisible(child.visible);
+        }
+      }
+    };
+    scene.events.on('postupdate', this.syncMarkers);
+    this.once('destroy', () => scene.events.off('postupdate', this.syncMarkers));
   }
 
   initGrid(grid, metrics) {
@@ -97,70 +113,14 @@ export class BoardView extends Phaser.GameObjects.Container {
 
   attachPowerOverlay(sprite, item) {
     const powerType = typeof item === 'string' ? item : item?.power;
-    const orientation = item?.orientation || null;
     if (!powerType) return;
-
-    const container = this.scene.add.container(0, 0);
-    const bg = this.scene.add.graphics();
-
-    let iconText = '★';
-    let label = '';
-    let bgColor = 0x241442;
-    let strokeColor = 0xFFD700;
-    let textColor = '#FFFFFF';
-
-    if (powerType === 'bomb') {
-      iconText = '💣';
-      label = 'BOMB';
-      bgColor = 0x330000;
-      strokeColor = 0xFF3D00;
-      textColor = '#FFD54F';
-    } else if (powerType === 'line') {
-      if (orientation === 'v') {
-        iconText = '↕';
-        label = 'LINE';
-      } else {
-        iconText = '↔';
-        label = 'LINE';
-      }
-      bgColor = 0x003344;
-      strokeColor = 0x00E5FF;
-      textColor = '#00E5FF';
-    } else if (powerType === 'freeze') {
-      iconText = '❄️';
-      label = 'FREEZE';
-      bgColor = 0x002B49;
-      strokeColor = 0x40C4FF;
-      textColor = '#E1F5FE';
-    } else if (powerType === 'x5') {
-      iconText = '★';
-      label = '5x';
-      bgColor = 0x4A3800;
-      strokeColor = 0xFFD700;
-      textColor = '#FFE082';
+    const orientation = item?.orientation || null;
+    const cellSize = this.boardMetrics?.cellSize || 64;
+    const marker = decoratePowerCandy(this.scene, sprite, powerType, orientation, cellSize);
+    if (marker) {
+      marker.setPosition(sprite.x, sprite.y);
+      this.candiesContainer.add(marker);
     }
-
-    const pillW = label.length > 4 ? 46 : 38;
-    const pillH = 18;
-
-    bg.fillStyle(bgColor, 0.92);
-    bg.fillRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 9);
-    bg.lineStyle(2, strokeColor, 1);
-    bg.strokeRoundedRect(-pillW / 2, -pillH / 2, pillW, pillH, 9);
-
-    const txt = this.scene.add.text(0, 0, `${iconText} ${label}`, {
-      fontFamily: THEME.fonts.hud,
-      fontSize: '9px',
-      fontStyle: 'bold',
-      color: textColor,
-      stroke: '#000000',
-      strokeThickness: 2
-    }).setOrigin(0.5);
-
-    container.add([bg, txt]);
-    container.setDepth(15);
-    sprite.powerMarker = container;
-    this.candiesContainer.add(container);
   }
 
   clearSprites() {
@@ -200,6 +160,7 @@ export class BoardView extends Phaser.GameObjects.Container {
           SpriteFit.fitCandy(sprite, cellSize);
           if (sprite.powerMarker) {
             sprite.powerMarker.setPosition(cx, cy);
+            if (sprite.powerMarker.redraw) sprite.powerMarker.redraw(cellSize);
           }
           if (sprite.codeLabel) {
             sprite.codeLabel.setPosition(cx, cy + cellSize * 0.35);
@@ -364,6 +325,20 @@ export class BoardView extends Phaser.GameObjects.Container {
     if (step.powerEvents && step.powerEvents.length > 0) {
       for (const pEvent of step.powerEvents) {
         this.renderPowerEventFx(pEvent);
+      }
+    }
+
+    // A 4+ match turned the moved candy into a power candy: give its sprite the power look now
+    // (the candy is not cleared, so it keeps its sprite and falls with the board).
+    if (step.powerSpawned) {
+      const ps = step.powerSpawned;
+      const s = this.sprites[ps.r]?.[ps.c];
+      if (s && !s.powerLook) {
+        this.attachPowerOverlay(s, ps);
+        if (!prefersReducedMotion()) {
+          const base = s.scaleX;
+          this.scene.tweens.add({ targets: s, scaleX: base * 1.25, scaleY: base * 1.25, duration: 130, yoyo: true, ease: 'Quad.easeOut' });
+        }
       }
     }
 
@@ -595,7 +570,10 @@ export class BoardView extends Phaser.GameObjects.Container {
     this.frozenTint = on;
     for (const s of this.allCandySprites()) {
       if (on) s.setTint(0x9feaff, 0x9feaff, 0xe6fbff, 0xe6fbff);
-      else s.clearTint();
+      else {
+        s.clearTint();
+        reapplyPowerTint(s);
+      }
     }
   }
 

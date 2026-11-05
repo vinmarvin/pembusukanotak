@@ -23,7 +23,7 @@ export const ACHIEVEMENTS_CONFIG = {
       id: 'scoreHunter',
       titleKey: 'achievements.scoreHunter.title',
       descKey: 'achievements.scoreHunter.desc',
-      targetScore: 65000,
+      targetScore: 100000,
       icon: '🎯'
     },
     {

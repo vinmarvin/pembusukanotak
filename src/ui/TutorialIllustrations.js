@@ -1,8 +1,8 @@
 // src/ui/TutorialIllustrations.js
-// Animated, looping illustrations for the 3 tutorial steps. Shared by TutorialScene and TutorialPopup.
-// Step 1: a mini board where a swap forms a 3-match that pops.
-// Step 2: matched candies burst into energy orbs that Nirodha fires at the enemy (HP bar drops, damage number).
-// Step 3: boss with the countdown pill.
+// Animated, looping illustrations for the tutorial steps (used by TutorialPopup).
+// Story:     match (swap makes a 3-match), attack (orbs hit the enemy), countdown (boss + timer pill)
+// Time Kill: matchScore (3-match pops "+points"), clock (timer drains, -penalty / +bonus),
+//            power (power candy fires: line, bomb, freeze, x5), score (score climbs past the best)
 import Phaser from 'phaser';
 import { THEME } from '../config/theme.config.js';
 import { GAMEPLAY } from '../config/gameplay.config.js';
@@ -10,6 +10,7 @@ import { AssetResolver } from '../systems/AssetResolver.js';
 import { InkText } from './InkText.js';
 import { prefersReducedMotion } from '../core/reducedMotion.js';
 import { t } from '../i18n/index.js';
+import { tutorialParams } from '../config/tutorials.config.js';
 
 // Mini board for step 1 (candy type indices). Swapping (0,2) with (1,2) makes row 1 a 3-match.
 // No 3-match exists before the swap.
@@ -35,10 +36,10 @@ export class TutorialIllustration {
   /**
    * @param {Phaser.Scene} scene
    * @param {Phaser.GameObjects.Container} container  illustration container (cleared by caller)
-   * @param {number} step  0, 1, or 2
-   * @param {{ pw: number, ph: number }} size  dialog size, used to scale the art
+   * @param {string} art  'match' | 'attack' | 'countdown' | 'matchScore' | 'clock' | 'power' | 'score'
+   * @param {{ pw: number, ph: number, artH?: number }} size  dialog size and the height free for the art
    */
-  constructor(scene, container, step, size) {
+  constructor(scene, container, art, size) {
     this.scene = scene;
     this.container = container;
     this.size = size;
@@ -48,9 +49,16 @@ export class TutorialIllustration {
     this.reduced = prefersReducedMotion();
     this.destroyed = false;
 
-    if (step === 0) this.buildMatch();
-    else if (step === 1) this.buildAttack();
-    else this.buildCountdown();
+    const builders = {
+      match: () => this.buildMatch(false),
+      matchScore: () => this.buildMatch(true),
+      attack: () => this.buildAttack(),
+      countdown: () => this.buildCountdown(),
+      clock: () => this.buildClock(),
+      power: () => this.buildPower(),
+      score: () => this.buildScore()
+    };
+    (builders[art] || builders.match)();
   }
 
   // ---------- helpers ----------
@@ -78,7 +86,18 @@ export class TutorialIllustration {
 
   // Area available for the art (between the step dots and the title).
   artHeight() {
-    return Math.max(110, Math.min(180, this.size.ph * 0.38));
+    if (this.size.artH) return Math.max(80, Math.min(180, this.size.artH));
+    return Math.max(90, Math.min(180, this.size.ph * 0.34));
+  }
+
+  floatText(x, y, text, color, size = 22) {
+    const txt = this.track(new InkText(this.scene, x, y, text, { fontSize: `${size}px`, color, isTitle: true }));
+    txt.setOrigin(0.5);
+    if (this.reduced) return txt;
+    txt.setScale(0.4);
+    this.tween({ targets: txt, scale: 1, duration: 160, ease: 'Back.easeOut' });
+    this.tween({ targets: txt, y: y - 30, alpha: 0, delay: 500, duration: 600, onComplete: () => this.removeObj(txt) });
+    return txt;
   }
 
   burst(x, y, color, count = 6, dist = 26) {
@@ -109,7 +128,7 @@ export class TutorialIllustration {
   }
 
   // ---------- step 1: swap to match ----------
-  buildMatch() {
+  buildMatch(withScore = false) {
     const { scene } = this;
     const rows = DEMO_BOARD.length;
     const cols = DEMO_BOARD[0].length;
@@ -212,6 +231,10 @@ export class TutorialIllustration {
           this.tween({ targets: s, scale: s.baseScale * 1.6, alpha: 0, duration: 220, ease: 'Cubic.easeOut' });
         });
         this.tween({ targets: hl, alpha: 0, duration: 300, delay: 150 });
+        if (withScore) {
+          const mid = matched[1];
+          this.floatText(mid.x, mid.y, `+${tutorialParams().points * matched.length}`, THEME.colors.arcadeYellowHex, 24);
+        }
       });
 
       this.after(3100, loop);
@@ -379,15 +402,20 @@ export class TutorialIllustration {
     const { scene } = this;
     const artH = this.artHeight();
     const bossSize = Math.min(artH * 0.55, 90);
-    const boss = this.track(scene.add.image(0, -artH * 0.12, AssetResolver.getBossKey(scene, 'b1')));
+    const pillH = 24;
+    const gap = 10;
+    // Centre the boss + pill block in the art area
+    const total = bossSize + gap + pillH;
+    const bossY = -total / 2 + bossSize / 2;
+    const pillY = total / 2 - pillH / 2;
+    const boss = this.track(scene.add.image(0, bossY, AssetResolver.getBossKey(scene, 'b1')));
     fitSprite(boss, bossSize);
 
-    const pillY = -artH * 0.12 + bossSize / 2 + 22;
     const warnBg = this.track(scene.add.graphics());
     warnBg.fillStyle(THEME.colors.punchMagenta, 1);
-    warnBg.fillRoundedRect(-90, pillY - 12, 180, 24, 6);
+    warnBg.fillRoundedRect(-90, pillY - pillH / 2, 180, pillH, 6);
     warnBg.lineStyle(2, THEME.colors.ink, 1);
-    warnBg.strokeRoundedRect(-90, pillY - 12, 180, 24, 6);
+    warnBg.strokeRoundedRect(-90, pillY - pillH / 2, 180, pillH, 6);
 
     const warnText = this.track(scene.add.text(0, pillY, '⏱️ ATTACK: 03.0s', {
       fontFamily: THEME.fonts.hud,
@@ -398,6 +426,278 @@ export class TutorialIllustration {
     if (!this.reduced) {
       this.tween({ targets: [warnBg, warnText], alpha: 0.55, duration: 400, yoyo: true, repeat: -1 });
     }
+  }
+
+  // ---------- Time Kill: the clock ----------
+  // The 2:00 timer drains; a wrong swap knocks off the penalty, a chain reaction adds the bonus.
+  buildClock() {
+    const { scene } = this;
+    const P = tutorialParams();
+    const total = P.min * 60;
+    const artH = this.artHeight();
+    const barW = Math.min(this.size.pw * 0.7, 300);
+    const barH = 28;
+    const barY = -artH * 0.08;
+    const fmt = (sec) => {
+      const v = Math.max(0, Math.round(sec));
+      return `${String(Math.floor(v / 60)).padStart(2, '0')}:${String(v % 60).padStart(2, '0')}`;
+    };
+
+    const icon = this.track(scene.add.text(0, barY - barH / 2 - 26, '⏱️', { fontSize: '30px' }).setOrigin(0.5));
+    const tray = this.track(scene.add.graphics());
+    tray.fillStyle(THEME.colors.hardShadow, 1);
+    tray.fillRoundedRect(-barW / 2, barY - barH / 2 + 3, barW, barH, 10);
+    tray.fillStyle(THEME.colors.playfieldTray, 1);
+    tray.fillRoundedRect(-barW / 2, barY - barH / 2, barW, barH, 10);
+    tray.lineStyle(3, THEME.colors.ink, 1);
+    tray.strokeRoundedRect(-barW / 2, barY - barH / 2, barW, barH, 10);
+    const fill = this.track(scene.add.rectangle(-barW / 2 + 3, barY, barW - 6, barH - 6, THEME.colors.arcadeYellow).setOrigin(0, 0.5));
+    const label = this.track(new InkText(scene, 0, barY, fmt(total), { fontSize: '16px', color: '#FFFFFF', isHud: true, strokeThickness: 3 }));
+    label.setOrigin(0.5);
+
+    const state = { sec: total };
+    const render = () => {
+      fill.width = Math.max(0, (barW - 6) * (state.sec / total));
+      label.setText(fmt(state.sec));
+    };
+    const minusTxt = t('tutorial.timeKill.minusSec', { sec: P.penalty });
+    const plusTxt = t('tutorial.timeKill.plusSec', { sec: P.combo });
+    const popY = barY + barH / 2 + 24;
+
+    if (this.reduced) {
+      state.sec = total * 0.75;
+      render();
+      this.track(new InkText(scene, -barW * 0.22, popY, minusTxt, { fontSize: '20px', color: THEME.colors.punchMagentaHex, isTitle: true })).setOrigin(0.5);
+      this.track(new InkText(scene, barW * 0.22, popY, plusTxt, { fontSize: '20px', color: THEME.colors.slimeGreenHex, isTitle: true })).setOrigin(0.5);
+      return;
+    }
+
+    const flash = (color) => {
+      fill.setFillStyle(color);
+      this.after(260, () => fill.setFillStyle(THEME.colors.arcadeYellow));
+    };
+
+    const loop = () => {
+      this.pruneTweens();
+      state.sec = total;
+      render();
+      // Time drains (sped up for the demo)
+      this.tween({ targets: state, sec: total - 20, duration: 1100, onUpdate: render });
+      // Wrong swap: penalty
+      this.after(1150, () => {
+        state.sec -= P.penalty;
+        render();
+        flash(THEME.colors.punchMagenta);
+        this.floatText(-barW * 0.22, popY, minusTxt, THEME.colors.punchMagentaHex, 22);
+        this.tween({ targets: [tray, fill, label], x: '+=5', duration: 45, yoyo: true, repeat: 2 });
+        this.tween({ targets: state, sec: state.sec - 8, duration: 800, onUpdate: render });
+      });
+      // Chain reaction: bonus
+      this.after(2100, () => {
+        state.sec += P.combo;
+        render();
+        flash(THEME.colors.slimeGreen);
+        this.floatText(barW * 0.22, popY, plusTxt, THEME.colors.slimeGreenHex, 22);
+        this.tween({ targets: icon, scale: 1.25, duration: 120, yoyo: true });
+        this.tween({ targets: state, sec: state.sec - 10, duration: 1100, onUpdate: render });
+      });
+      this.after(3500, loop);
+    };
+    loop();
+  }
+
+  // ---------- Time Kill: power-ups ----------
+  // A power candy on a mini board is tapped twice and fires; each loop shows the next power.
+  buildPower() {
+    const { scene } = this;
+    const P = tutorialParams();
+    const rows = 3;
+    const cols = 4;
+    const board = [
+      [1, 2, 4, 0],
+      [3, 0, 5, 2],
+      [4, 1, 3, 5]
+    ];
+    const cell = Math.floor(Math.min(this.artHeight() / rows, (this.size.pw * 0.6) / cols, 48));
+    const bw = cell * cols;
+    const bh = cell * rows;
+    const pos = (r, c) => ({ x: -bw / 2 + cell / 2 + c * cell, y: -bh / 2 + cell / 2 + r * cell });
+
+    const tray = this.track(scene.add.graphics());
+    tray.fillStyle(THEME.colors.playfieldTray, 1);
+    tray.fillRoundedRect(-bw / 2 - 6, -bh / 2 - 6, bw + 12, bh + 12, 12);
+    tray.lineStyle(3, THEME.colors.ink, 1);
+    tray.strokeRoundedRect(-bw / 2 - 6, -bh / 2 - 6, bw + 12, bh + 12, 12);
+
+    const sprites = [];
+    for (let r = 0; r < rows; r++) {
+      sprites.push([]);
+      for (let c = 0; c < cols; c++) {
+        const p = pos(r, c);
+        const spr = this.track(scene.add.image(p.x, p.y, AssetResolver.getCandyKey(scene, board[r][c])));
+        spr.baseScale = fitSprite(spr, cell * 0.8);
+        sprites[r].push(spr);
+      }
+    }
+
+    const PR = 1;
+    const PC = 1;
+    const pp = pos(PR, PC);
+    const kinds = [
+      { id: 'line', badge: '↔', color: THEME.colors.electricCyan },
+      { id: 'bomb', badge: '💣', color: 0xff7a1a },
+      { id: 'freeze', badge: '❄', color: THEME.colors.electricCyan },
+      { id: 'x5', badge: `★${P.mult}x`, color: THEME.colors.arcadeYellow }
+    ];
+    const badgeBg = this.track(scene.add.graphics());
+    const badgeTxt = this.track(scene.add.text(pp.x, pp.y + cell * 0.32, '', { fontSize: '12px', fontFamily: THEME.fonts.hud, color: '#FFFFFF' }).setOrigin(0.5));
+    const setBadge = (k) => {
+      badgeTxt.setText(k.badge);
+      const w = Math.max(24, badgeTxt.width + 10);
+      badgeBg.clear();
+      badgeBg.fillStyle(THEME.colors.ink, 0.9);
+      badgeBg.fillRoundedRect(pp.x - w / 2, pp.y + cell * 0.32 - 9, w, 18, 9);
+      badgeBg.lineStyle(2, k.color, 1);
+      badgeBg.strokeRoundedRect(pp.x - w / 2, pp.y + cell * 0.32 - 9, w, 18, 9);
+    };
+    const hand = this.track(scene.add.text(pp.x + cell * 0.1, pp.y + cell * 0.15, '👆', { fontSize: `${Math.round(cell * 0.6)}px` }).setOrigin(0.3, 0.1).setAlpha(0));
+
+    if (this.reduced) {
+      setBadge(kinds[1]);
+      return;
+    }
+
+    let k = 0;
+    const victims = (id) => {
+      if (id === 'line') return sprites[PR];
+      if (id === 'bomb') return [0, 1, 2].flatMap((r) => [0, 1, 2].map((c) => sprites[r][c]));
+      return [sprites[PR][PC]];
+    };
+
+    const loop = () => {
+      this.pruneTweens();
+      const kind = kinds[k % kinds.length];
+      k++;
+      sprites.flat().forEach((s) => s.setAlpha(1).setScale(s.baseScale).clearTint());
+      badgeBg.setAlpha(1);
+      badgeTxt.setAlpha(1);
+      setBadge(kind);
+      this.tween({ targets: sprites[PR][PC], scale: sprites[PR][PC].baseScale * 1.12, duration: 300, yoyo: true, repeat: 1 });
+
+      // Tap twice
+      this.tween({ targets: hand, alpha: 1, duration: 180, delay: 300 });
+      this.tween({ targets: hand, scale: 0.85, duration: 100, delay: 600, yoyo: true });
+      this.tween({ targets: hand, scale: 0.85, duration: 100, delay: 900, yoyo: true });
+
+      this.after(1150, () => {
+        this.tween({ targets: hand, alpha: 0, duration: 150 });
+        badgeBg.setAlpha(0);
+        badgeTxt.setAlpha(0);
+        if (kind.id === 'line') {
+          const beam = this.track(scene.add.rectangle(0, pp.y, bw + 12, 14, kind.color, 0.8));
+          this.tween({ targets: beam, scaleY: 2.4, alpha: 0, duration: 320, onComplete: () => this.removeObj(beam) });
+        } else if (kind.id === 'bomb') {
+          const blast = this.track(scene.add.circle(pp.x, pp.y, 8, kind.color, 0.7));
+          this.tween({ targets: blast, scale: (cell * 1.6) / 8, alpha: 0, duration: 340, onComplete: () => this.removeObj(blast) });
+        } else if (kind.id === 'freeze') {
+          const wash = this.track(scene.add.rectangle(0, 0, bw + 12, bh + 12, THEME.colors.electricCyan, 0.35));
+          const flake = this.track(scene.add.text(0, 0, '❄', { fontSize: `${Math.round(cell * 1.4)}px`, color: '#E6FBFF' }).setOrigin(0.5).setScale(0));
+          sprites.flat().forEach((s) => s.setTint(0x9feaff));
+          this.tween({ targets: flake, scale: 1, angle: 90, duration: 380, ease: 'Back.easeOut' });
+          this.after(900, () => {
+            this.tween({ targets: [wash, flake], alpha: 0, duration: 250, onComplete: () => { this.removeObj(wash); this.removeObj(flake); } });
+            sprites.flat().forEach((s) => s.clearTint());
+          });
+        } else {
+          this.floatText(0, -cell * 0.4, `★ x${P.mult}`, THEME.colors.arcadeYellowHex, 28);
+        }
+        victims(kind.id).forEach((s) => {
+          this.burst(s.x, s.y, kind.color, 5, 18);
+          this.tween({ targets: s, scale: s.baseScale * 1.5, alpha: 0, duration: 220 });
+        });
+      });
+
+      // Refill
+      this.after(2300, () => {
+        sprites.flat().forEach((s) => {
+          if (s.alpha < 1) {
+            s.setScale(s.baseScale).setY(s.y - cell * 0.5);
+            this.tween({ targets: s, alpha: 1, y: s.y + cell * 0.5, duration: 240, ease: 'Bounce.easeOut' });
+          }
+        });
+      });
+      this.after(3000, loop);
+    };
+    loop();
+  }
+
+  // ---------- Time Kill: high score ----------
+  // The score climbs, passes the best score, and a NEW BEST badge pops.
+  buildScore() {
+    const { scene } = this;
+    const P = tutorialParams();
+    const artH = this.artHeight();
+    const cardW = Math.min(this.size.pw * 0.62, 260);
+    const cardH = Math.min(70, artH * 0.46);
+    const cardY = -artH * 0.06;
+    // Demo values, in whole candies' worth of points
+    const best = P.points * 80;
+    const final = P.points * 125;
+
+    const trophy = this.track(scene.add.text(0, cardY - cardH / 2 - 22, '🏆', { fontSize: '30px' }).setOrigin(0.5));
+    const card = this.track(scene.add.graphics());
+    card.fillStyle(THEME.colors.hardShadow, 1);
+    card.fillRoundedRect(-cardW / 2, cardY - cardH / 2 + 4, cardW, cardH, 14);
+    card.fillStyle(THEME.colors.playfieldTray, 1);
+    card.fillRoundedRect(-cardW / 2, cardY - cardH / 2, cardW, cardH, 14);
+    card.lineStyle(3, THEME.colors.slimeGreen, 1);
+    card.strokeRoundedRect(-cardW / 2, cardY - cardH / 2, cardW, cardH, 14);
+    const scoreLabel = this.track(new InkText(scene, 0, cardY - cardH * 0.24, t('timekill.score'), { fontSize: '13px', color: THEME.colors.slimeGreenHex, isHud: true, strokeThickness: 3 }));
+    scoreLabel.setOrigin(0.5);
+    const scoreVal = this.track(new InkText(scene, 0, cardY + cardH * 0.16, '0', { fontSize: '26px', color: '#FFFFFF', isTitle: true }));
+    scoreVal.setOrigin(0.5);
+    const bestTxt = this.track(new InkText(scene, 0, cardY + cardH / 2 + 18, `${t('timekill.bestScore')}: ${best}`, { fontSize: '13px', color: '#BBBBBB', isHud: true, strokeThickness: 3 }));
+    bestTxt.setOrigin(0.5);
+    const newBest = this.track(new InkText(scene, cardW / 2 - 10, cardY - cardH / 2, t('results.newBest'), { fontSize: '14px', color: THEME.colors.arcadeYellowHex, isTitle: true }));
+    newBest.setOrigin(0.5).setAngle(12).setAlpha(0);
+
+    if (this.reduced) {
+      scoreVal.setText(String(final));
+      newBest.setAlpha(1);
+      return;
+    }
+
+    const state = { v: 0 };
+    let celebrated = false;
+    const loop = () => {
+      this.pruneTweens();
+      state.v = 0;
+      celebrated = false;
+      scoreVal.setText('0');
+      newBest.setAlpha(0).setScale(1);
+      bestTxt.setText(`${t('timekill.bestScore')}: ${best}`);
+      this.tween({
+        targets: state,
+        v: final,
+        duration: 1800,
+        delay: 200,
+        ease: 'Cubic.easeOut',
+        onUpdate: () => {
+          const shown = Math.round(state.v / P.points) * P.points;
+          scoreVal.setText(String(shown));
+          if (!celebrated && shown > best) {
+            celebrated = true;
+            newBest.setAlpha(1).setScale(0.3);
+            this.tween({ targets: newBest, scale: 1, duration: 260, ease: 'Back.easeOut' });
+            this.tween({ targets: trophy, y: trophy.y - 10, duration: 160, yoyo: true, repeat: 1 });
+            this.burst(0, cardY - cardH / 2, THEME.colors.arcadeYellow, 10, 50);
+          }
+        }
+      });
+      this.after(2300, () => bestTxt.setText(`${t('timekill.bestScore')}: ${final}`));
+      this.after(3600, loop);
+    };
+    loop();
   }
 
   destroy() {

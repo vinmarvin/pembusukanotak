@@ -87,7 +87,7 @@ describe('Time Kill Engine (GAME_SPEC Section 5.6 & Decisions 11-16)', () => {
     expect(tk.timeLeft).toBe(115);
   });
 
-  it('multiplies score by 5 during score multiplier and unlocks Score Hunter at 65000', () => {
+  it('multiplies score by 5 during score multiplier and unlocks Score Hunter at 100000', () => {
     const tk = new TimeKillEngine({ rng });
     tk.scoreMultRemaining = 10;
 
@@ -109,11 +109,11 @@ describe('Time Kill Engine (GAME_SPEC Section 5.6 & Decisions 11-16)', () => {
     expect(tk.score).toBe(10000);
     expect(SaveManager.data.achievements.scoreHunter).toBe(false);
 
-    // Reaching 65,000 unlocks Score Hunter
-    tk.score = 65000;
+    // Reaching 100,000 unlocks Score Hunter
+    tk.score = 100000;
     tk.finishRun();
     expect(SaveManager.data.achievements.scoreHunter).toBe(true);
-    expect(SaveManager.data.bestScore).toBe(65000);
+    expect(SaveManager.data.bestScore).toBe(100000);
   });
 
   it('awards combo bonus exactly once (+5s) regardless of number of cascades', () => {
@@ -161,5 +161,20 @@ describe('Time Kill Engine (GAME_SPEC Section 5.6 & Decisions 11-16)', () => {
     const tk2 = new TimeKillEngine({ rng });
     expect(tk2.bestScore).toBe(8500);
   });
-});
+  it('saves best score and Score Hunter only when the timer runs out, not mid-run', () => {
+    const tk = new TimeKillEngine({ rng });
+    tk.scoreMultRemaining = 10;
+    const big = { valid: true, steps: [{ index: 0, longestRun: 3, cleared: Array.from({ length: 220 }, (_, i) => ({ r: 0, c: i })), powerEvents: [] }] };
+    tk.onMoveResolved(big); // 220 * 100 * 5 = 110,000
+    expect(tk.score).toBe(110000);
+    expect(tk.isNewBest).toBe(true);
+    // Player leaves to the menu here: nothing is written to the save.
+    expect(SaveManager.data.bestScore).toBe(0);
+    expect(SaveManager.data.achievements.scoreHunter).toBe(false);
 
+    tk.tick(200); // timer drains to 0
+    expect(tk.isGameOver).toBe(true);
+    expect(SaveManager.data.bestScore).toBe(110000);
+    expect(SaveManager.data.achievements.scoreHunter).toBe(true);
+  });
+});

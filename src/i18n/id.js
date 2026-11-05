@@ -65,7 +65,6 @@ export default {
     score: 'Skor',
     bestScore: 'Skor Terbaik',
     timeLeft: 'Sisa Waktu',
-    hint: 'Geser atau ketuk untuk menukar. Salah tukar: -10 d',
     effect: {
       freeze: 'Beku: {sec}d',
       x5: 'Skor 5x: {sec}d'
@@ -121,7 +120,7 @@ export default {
     },
     scoreHunter: {
       title: 'Score Hunter',
-      desc: 'Raih skor 65000 di Time Kill ({current}/{target})'
+      desc: 'Raih skor 100000 di Time Kill ({current}/{target})'
     },
     memeCurator: {
       title: 'Meme Curator',
@@ -184,6 +183,26 @@ export default {
     step3: {
       title: 'Waspadalah!',
       desc: 'Waktu serang musuh terus berjalan mundur. Bos punya efek spesial dahsyat!'
+    },
+    timeKill: {
+      step1: {
+        title: 'Cocokkan untuk Poin',
+        desc: 'Tukar permen bersebelahan hingga 3 atau lebih sejajar. Setiap permen yang hancur bernilai {points} poin.'
+      },
+      step2: {
+        title: 'Kejar Waktu',
+        desc: 'Kamu punya {min} menit. Salah tukar memotong {penalty} d. Gerakan yang memicu reaksi berantai memberi +{combo} d.'
+      },
+      step3: {
+        title: 'Power-Up',
+        desc: 'Cocokkan 4 atau lebih untuk +{bonus} d dan permen power. Cocokkan atau ketuk dua kali: garis, bom, beku ({freeze} d) atau skor x{mult} ({x5} d).'
+      },
+      step4: {
+        title: 'Raih Skor Tertinggi!',
+        desc: 'Tidak ada musuh di sini. Raih skor setinggi mungkin sebelum waktu habis, dan pecahkan rekormu!'
+      },
+      minusSec: '-{sec} d',
+      plusSec: '+{sec} d'
     },
     skip: 'Lewati Tutorial',
     gotIt: 'Paham!'

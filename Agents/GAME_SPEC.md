@@ -76,7 +76,7 @@ tests/               mirrors src/core, plus i18n and assets tests
 | 20 | Minion, boss, and candy visuals come from the owner's `visual/` folder (`ASSETS_SPEC.md`). Minion display names are derived from file names. A missing visual becomes a generated placeholder. |
 | 21 | Story text (intro before Stage 1, one short text per area, ending), at most 3 lines each, drafted by the agent in both languages and tagged `[DRAFT - owner to verify]` in code comments. |
 | 22 | The main menu has a Credits button (as in the mockup). The Credits popup shows the credits and a "Support the creator" donation button. That button opens a popup with the donation QR image (`visual/` file whose name contains `qr`, else a placeholder box). The first click on the donation button unlocks Support Creator. |
-| 23 | A first-launch tutorial (skippable) explains swap, damage, enemy countdown, and boss effects. It is replayable from a "How to play" link in the Settings popup. |
+| 23 | Tutorials are per mode (owner): no tutorial at first launch. The Story tutorial (swap to match, damage, enemy countdown and boss effects) opens the first time a Story battle starts; the Time Kill tutorial (match for points, the 2-minute clock with wrong-swap penalty and chain bonus, power-ups, reach the highest score) opens the first time a Time Kill run starts. The game is paused behind it. Each is replayable from that mode's pause menu ("How to play"); Settings no longer has a How to play link. Saved as `tutorialSeen` (Story) and `timeKillTutorialSeen`. |
 | 24 | Portrait and landscape layouts both exist and recompute on resize and rotation without resetting state. The mockups are landscape; derive portrait from the same components. |
 | 25 | Boss freeze overlay shows a visible countdown; input is ignored while frozen. |
 | 26 | Settings popup (as in the mockup): Music slider, SFX slider (0 to 100, live, saved), Language toggle (English / Indonesia), OK and close buttons. The sound button in the top bar mutes and unmutes everything. Details: `ASSETS_SPEC.md` section 5. |
@@ -86,6 +86,7 @@ tests/               mirrors src/core, plus i18n and assets tests
 | 30 | The UI follows the mockups in `design/` (layout, colors, fonts, components), with the corrections in `DESIGN_REFERENCE.md` section 6. |
 | 31 | Boss attack turn order (owner): when the boss countdown hits 0, the boss damage lands at once. A player move already in progress then resolves fully and deals its damage. Only after the board settles is the boss effect (shuffle, remove 10, freeze) cast, with its banner; no new move can start from the attack until the cast ends. If that move defeats the boss, the effect is dropped. `FightEngine.tick(dt)` without a grid returns the effect; `castBossEffect(effect, grid)` applies it. |
 | 32 | Main-menu easter eggs (owner): the floating decor icons are silent buttons (no hand cursor, hover, bounce or colour change). Clicking the 67 candy 67 times plays `egg.c67` (67 earrape); the bear-like small minion 42 times plays `egg.ambatukam` (Ambatukam Termuwani); the Skibidi toilet 82 times plays `egg.skibidi` (SkibidJumpScare video) in a centred popup with no close button that closes itself when the video ends. While an egg plays, music and every other sound are silenced and all menu buttons ignore input. Click counts last for the browser session and reset after the egg fires. Egg volume follows the SFX slider and the mute button. Values in `src/config/eastereggs.config.js`; media from the owner's read-only `easteregg/` folder. |
+| 33 | Time Kill low-score easter egg (owner): when a run ends (timer reaches 0) with a final score of 5000 or less, before the Results screen, a centred popup shows `egg.less5000` (`easteregg/5000.png`) and plays `sfx.egg.less5000` (`audio/sfx_less5000.mp3`). Music and other sounds are silenced and input is blocked while it plays. The popup has no close button until the sound ends; then a close button appears and closing it opens the Results screen. Leaving through Pause > Menu never triggers it. Sound volume follows the SFX slider and mute. Values in `EASTER_EGGS_CONFIG.lowScore`. |
 
 ## 4. Config (`src/config/gameplay.config.js`, copy exactly; tuning means editing config files only)
 
@@ -107,7 +108,7 @@ export const GAMEPLAY = {
     freezeSec: 15, scoreMultiplier: 5, scoreMultiplierSec: 10, bombSize: 4
   },
   memeBook: { candyUnlockCount: 100 },
-  achievements: { scoreHunterScore: 65000 },
+  achievements: { scoreHunterScore: 100000 },
   balanceSim: { secondsPerMatch: 4, candiesPerMatch: 3 },
   debug: { allowQueryFlag: true, attackMultiplier: 10 }
 };
@@ -171,7 +172,7 @@ Timer 120 s. Rules are decisions 5, 11 to 16. Power-up effects are decision 15.
 
 ### 5.8 Meme Book and achievements
 - Meme Book: each entry is a 2-page spread: left = brainrot image (polaroid), right = lore (two paragraphs from `CONTENT_LORE.md`). Rules are decision 17.
-- Achievements: Fresh New Brain (finish Story Mode); You are fully brain rot (secret, decision 18); Score Hunter (65000 score in Time Kill); Meme Curator (all 11 entries unlocked); Support Creator (click the donation button).
+- Achievements: Fresh New Brain (finish Story Mode); You are fully brain rot (secret, decision 18); Score Hunter (100000 score in Time Kill); Meme Curator (all 11 entries unlocked); Support Creator (click the donation button).
 
 ### 5.9 Save object
 ```js
@@ -180,7 +181,7 @@ Timer 120 s. Rules are decisions 5, 11 to 16. Power-up effects are decision 15.
   bossDefeated: { b1: false, b2: false, b3: false, b4: false, b5: false },
   achievements: { freshNewBrain: false, fullyBrainRot: false, scoreHunter: false,
                   memeCurator: false, supportCreator: false },
-  bestScore: 0, tutorialSeen: false,
+  bestScore: 0, tutorialSeen: false, timeKillTutorialSeen: false,
   settings: { musicVolume: 70, sfxVolume: 80, muted: false, language: 'en' } }
 ```
 

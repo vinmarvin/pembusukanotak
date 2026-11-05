@@ -16,8 +16,10 @@ Read in Phase 0, 4, 5, 6, 7, and whenever you touch layout, HUD, scenes, text, o
 - `uiScale = clamp(min(width, height) / 720, 0.6, 1.6)` (values in `screen.config.js`). Token sizes from `DESIGN_REFERENCE.md` are authored at 1080 px tall; convert with `uiScale x 0.667`. Rendered minimums: buttons 44 px tall, body text 14 px, labels 12 px, HUD numbers 18 px.
 - The board has `cols x rows` square cells (Story 8x7, Time Kill 8x8). `cellSize = min(boardZoneWidth / cols, boardZoneHeight / rows)`; the board is centered in its zone, so it is fully visible and never covered.
 - Zones (defaults in `screen.config.js`):
-  - **Landscape:** top bar; below it the screen content as in the mockups. Battle: fighter panel row (player card, VS badge, enemy card), countdown row, board centered below. Time Kill: score panel, timer row, board, hint line.
+  - **Landscape:** top bar; below it the screen content as in the mockups. Battle: fighter panel row (player card, VS badge, enemy card), countdown row, board centered below. Time Kill: score panel, timer row, board (no hint line, owner request).
   - **Portrait:** top bar; fighter cards side by side but compact (portrait thumbnail, name, HP bar); countdown row; board full width; hint line. Time Kill: score panel stacked above the timer row, board below.
+  - **Compact landscape** (landscape with height <= `compactLandscape.maxHeight`, e.g. phones sideways): the board takes the full content height in a centre column. Battle: player card + VS badge in the left column, enemy card + attack countdown in the right column. Time Kill: score and best score cards + timer in the left column, effect chips in the right column. (Owner playtest: the stacked layout left ~30 px cells on a 393 px tall phone.)
+  - The top bar is never shorter than `topBarMinHeight` (56 px, its buttons are 44 px); zones start below its real height. Board zones keep `boardTrayPad` free so the tray never touches the screen edge.
 - Swipe threshold = 0.3 x cell size.
 
 ## 3. Screens (visual details in DESIGN_REFERENCE section 6)
@@ -26,7 +28,7 @@ Read in Phase 0, 4, 5, 6, 7, and whenever you touch layout, HUD, scenes, text, o
 - **StageSelect:** brain map with 5 nodes (areas) joined by a dashed path; right panel with the selected stage, boss card, player stats for that stage, Start Battle; Back to Menu. Locked nodes show a lock and "Clear stage n-1 first".
 - **StoryText:** short text popup before Stage 1 (intro), when entering each area, and after Stage 5 (ending). Skippable.
 - **Battle:** fighter panel (player card, VS badge with "Stage n" and "Enemy k/6", enemy card with MINION or BOSS tag), attack countdown row, board.
-- **TimeKill:** score and best score, Pause, Back to main menu, timer bar and time, active effect chips, board, hint line.
+- **TimeKill:** score and best score, Pause, Back to main menu, timer bar and time, active effect chips, board. (The hint line was removed at the owner's request.)
 - **StageClear:** HP and attack before and after, Next stage, Retry, Menu.
 - **GameOver:** Retry stage, Menu.
 - **Results (Time Kill):** score, best score, new-best marker, Play again, Menu.
@@ -46,7 +48,9 @@ Read in Phase 0, 4, 5, 6, 7, and whenever you touch layout, HUD, scenes, text, o
 - Stage clear and boss defeat get a celebratory effect and, for a boss, a "Meme Book entry unlocked" toast.
 
 ## 5. Tutorial
-First launch, skippable: 1) swap candies to match 3, 2) destroyed candies damage the enemy, 3) watch the enemy countdown and boss effects. Set `tutorialSeen` when finished or skipped. Replayable from "How to play" in Settings.
+Per mode, no tutorial at first launch (owner). Popup over the paused game the first time a mode is played, replayable from that mode's pause menu ("How to play"); not in Settings. Steps and art live in `src/config/tutorials.config.js`; every number shown comes from `GAMEPLAY`.
+- **Story** (3 steps): swap candies to match 3, destroyed candies damage the enemy, watch the enemy countdown and boss effects. Flag `tutorialSeen`.
+- **Time Kill** (4 steps): match for points (100 per candy), race the 2:00 clock (wrong swap -10 s, chain reaction +5 s), power-ups (match 4+ for +5 s and a power candy: line, bomb, freeze 15 s, score x5 for 10 s), and reach as high a score as you can. Flag `timeKillTutorialSeen`.
 
 ## 6. Meme Book
 - Landscape: two pages side by side (left = polaroid with the brainrot image, name, and entry number; right = dossier page).
@@ -63,7 +67,7 @@ First launch, skippable: 1) swap candies to match 3, 2) destroyed candies damage
 - No visible text is hard-coded outside `i18n/`.
 
 ## 8. Responsive QA checklist (used in the gates)
-Window sizes: 360x800, 390x844, 412x915 (phone portrait); 844x390 (phone landscape); 768x1024, 820x1180, 1024x768 (tablet); 1366x768, 1920x1080 (laptop).
+Window sizes: 360x800, 390x844, 412x915 (phone portrait); 844x390, 851x393, 870x393, 874x402 (phone landscape); 768x1024, 820x1180, 1024x768, 1180x820, 1280x800 (tablet); 1366x768, 1920x1080 (laptop).
 For each size check:
 - [ ] Board is fully visible and not covered by any HUD element; cells are square.
 - [ ] All text readable in English and Indonesian; all buttons at least 44 CSS px; no overflow.

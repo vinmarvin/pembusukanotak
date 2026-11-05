@@ -1,9 +1,9 @@
 // tests/eastereggs/eastereggs.test.js
 // Main-menu easter eggs: click targets and media file matching.
 import { describe, it, expect } from 'vitest';
-import { createEggCounts, registerEggClick } from '../../src/core/eastereggs.js';
+import { createEggCounts, registerEggClick, isLowScoreEgg } from '../../src/core/eastereggs.js';
 import { EASTER_EGGS_CONFIG } from '../../src/config/eastereggs.config.js';
-import { classifyEasterEgg } from '../../src/core/assets/classify.js';
+import { classifyEasterEgg, classifyAsset } from '../../src/core/assets/classify.js';
 
 const clickN = (counts, id, n) => {
   let hit = null;
@@ -48,5 +48,23 @@ describe('Main menu easter eggs', () => {
     expect(classifyEasterEgg('easteregg/Ambatukam Termuwani.mp3')).toMatchObject({ key: 'egg.ambatukam', kind: 'audio' });
     expect(classifyEasterEgg('easteregg/SkibidJumpScare.mp4')).toMatchObject({ key: 'egg.skibidi', kind: 'video' });
     expect(classifyEasterEgg('easteregg/notes.txt')).toBeNull();
+  });
+});
+
+describe('Time Kill low-score easter egg', () => {
+  it('fires when the final score is 5000 or less', () => {
+    expect(EASTER_EGGS_CONFIG.lowScore.maxScore).toBe(5000);
+    expect(isLowScoreEgg(0)).toBe(true);
+    expect(isLowScoreEgg(4900)).toBe(true);
+    expect(isLowScoreEgg(5000)).toBe(true);
+    expect(isLowScoreEgg(5100)).toBe(false);
+    expect(isLowScoreEgg(100000)).toBe(false);
+  });
+
+  it('maps easteregg/5000.png and audio/sfx_less5000.mp3 to the egg keys', () => {
+    expect(classifyEasterEgg('easteregg/5000.png')).toEqual({ key: 'egg.less5000', kind: 'image', category: 'easteregg' });
+    expect(classifyAsset('audio/sfx_less5000.mp3').key).toBe('sfx.egg.less5000');
+    expect(EASTER_EGGS_CONFIG.lowScore.image).toBe('egg.less5000');
+    expect(EASTER_EGGS_CONFIG.lowScore.sound).toBe('sfx.egg.less5000');
   });
 });

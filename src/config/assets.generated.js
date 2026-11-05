@@ -315,6 +315,11 @@ export const ASSETS_MANIFEST = {
       "path": "assets/audio/sfx_hit.mp3",
       "category": "sfx"
     },
+    "sfx.egg.less5000": {
+      "key": "sfx.egg.less5000",
+      "path": "assets/audio/sfx_egg_less5000.mp3",
+      "category": "sfx"
+    },
     "sfx.candy.lirili": {
       "key": "sfx.candy.lirili",
       "path": "assets/audio/sfx_candy_lirili.mp3",
@@ -352,6 +357,11 @@ export const ASSETS_MANIFEST = {
     }
   },
   "easterEggs": {
+    "egg.less5000": {
+      "key": "egg.less5000",
+      "kind": "image",
+      "path": "assets/easteregg/egg_less5000.png"
+    },
     "egg.c67": {
       "key": "egg.c67",
       "kind": "audio",

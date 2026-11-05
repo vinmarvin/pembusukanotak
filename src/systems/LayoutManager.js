@@ -1,7 +1,21 @@
 // src/systems/LayoutManager.js
 // Responsive layout manager computing zones, scaling, and safe areas.
+//
+// Three layout modes:
+//   - landscape (laptop / tablet): mockup layout. Fighter row, countdown row, board below.
+//   - compact landscape (short screens, e.g. phones sideways): board uses the full height in the
+//     centre; fighter / score cards and timers sit in side columns. Without this the board on a
+//     ~390 px tall phone was only ~30 px per cell.
+//   - portrait: stacked, board full width.
+// Every mode also returns ready-made rectangles (playerCard, enemyCard, vs, scoreCard, ...) so the
+// scenes only place things, they never re-derive the layout.
 import { SCREEN_CONFIG } from '../config/screen.config.js';
 import { EventBus } from './EventBus.js';
+
+const rect = (x, y, width, height) => ({ x, y, width, height });
+// Size of the Time Kill effect chips (TimeKillScene draws them at this size).
+export const TK_CHIP = { w: 110, h: 32 };
+const centeredRect = (cx, cy, width, height) => rect(cx - width / 2, cy - height / 2, width, height);
 
 class LayoutManagerImpl {
   constructor() {
@@ -58,6 +72,7 @@ class LayoutManagerImpl {
     const h = this._height;
     const orientation = w >= h ? 'landscape' : 'portrait';
     const isLandscape = orientation === 'landscape';
+    const isCompact = isLandscape && h <= SCREEN_CONFIG.compactLandscape.maxHeight;
 
     const minDim = Math.min(w, h);
     const rawScale = minDim / SCREEN_CONFIG.uiScale.baseDimension;
@@ -68,158 +83,20 @@ class LayoutManagerImpl {
     const tokenScale = uiScale * SCREEN_CONFIG.uiScale.tokenScaleFactor;
 
     const safeMargin = Math.round(SCREEN_CONFIG.safeMargin * uiScale);
-    const topBarHeight = Math.round(SCREEN_CONFIG.topBarHeight * uiScale);
+    // Must match what TopBar actually draws, or content slides under the bar on phones.
+    const topBarHeight = Math.max(Math.round(SCREEN_CONFIG.topBarHeight * uiScale), SCREEN_CONFIG.topBarMinHeight);
 
-    // Common zones calculation
-    const topBar = {
-      x: 0,
-      y: 0,
-      width: w,
-      height: topBarHeight
-    };
+    const topBar = rect(0, 0, w, topBarHeight);
+    const contentArea = rect(
+      safeMargin,
+      topBarHeight + safeMargin,
+      w - safeMargin * 2,
+      h - topBarHeight - safeMargin * 2
+    );
 
-    const contentArea = {
-      x: safeMargin,
-      y: topBarHeight + safeMargin,
-      width: w - safeMargin * 2,
-      height: h - topBarHeight - safeMargin * 2
-    };
-
-    // Battle Layout Zones (Bug 4: added clear gap between countdown and play board)
-    let battle = {};
-    const gapBetween = Math.max(18, Math.round(22 * uiScale));
-
-    if (isLandscape) {
-      const fightersHeight = Math.min(contentArea.height * 0.28, 140 * uiScale);
-      const countdownHeight = Math.round(28 * uiScale);
-      const countdownY = contentArea.y + fightersHeight + safeMargin * 0.5;
-      const boardY = countdownY + countdownHeight + gapBetween;
-      const remainingHeight = contentArea.y + contentArea.height - boardY;
-
-      battle = {
-        fighters: {
-          x: contentArea.x,
-          y: contentArea.y,
-          width: contentArea.width,
-          height: fightersHeight
-        },
-        countdown: {
-          x: contentArea.x,
-          y: countdownY,
-          width: contentArea.width,
-          height: countdownHeight
-        },
-        board: {
-          x: contentArea.x,
-          y: boardY,
-          width: contentArea.width,
-          height: Math.max(remainingHeight, 180)
-        }
-      };
-    } else {
-      // Portrait
-      const fightersHeight = Math.min(contentArea.height * 0.20, 110 * uiScale);
-      const countdownHeight = Math.round(24 * uiScale);
-      const hintHeight = Math.round(30 * uiScale);
-      const countdownY = contentArea.y + fightersHeight + safeMargin * 0.5;
-      const boardY = countdownY + countdownHeight + gapBetween;
-      const boardHeight = contentArea.height - (boardY - contentArea.y) - hintHeight - safeMargin;
-
-      battle = {
-        fighters: {
-          x: contentArea.x,
-          y: contentArea.y,
-          width: contentArea.width,
-          height: fightersHeight
-        },
-        countdown: {
-          x: contentArea.x,
-          y: countdownY,
-          width: contentArea.width,
-          height: countdownHeight
-        },
-        board: {
-          x: contentArea.x,
-          y: boardY,
-          width: contentArea.width,
-          height: Math.max(boardHeight, 200)
-        },
-        hint: {
-          x: contentArea.x,
-          y: boardY + boardHeight + safeMargin * 0.5,
-          width: contentArea.width,
-          height: hintHeight
-        }
-      };
-    }
-
-    // Time Kill Layout Zones
-    let timeKill = {};
-    if (isLandscape) {
-      const headerHeight = Math.min(contentArea.height * 0.16, 75 * uiScale);
-      const timerHeight = Math.round(28 * uiScale);
-      const hintHeight = Math.round(24 * uiScale);
-      const boardHeight = contentArea.height - headerHeight - timerHeight - hintHeight - safeMargin;
-
-      timeKill = {
-        header: {
-          x: contentArea.x,
-          y: contentArea.y,
-          width: contentArea.width,
-          height: headerHeight
-        },
-        timer: {
-          x: contentArea.x,
-          y: contentArea.y + headerHeight + 2,
-          width: contentArea.width,
-          height: timerHeight
-        },
-        board: {
-          x: contentArea.x,
-          y: contentArea.y + headerHeight + timerHeight + safeMargin * 0.25,
-          width: contentArea.width,
-          height: boardHeight
-        },
-        hint: {
-          x: contentArea.x,
-          y: contentArea.y + headerHeight + timerHeight + boardHeight + safeMargin * 0.25,
-          width: contentArea.width,
-          height: hintHeight
-        }
-      };
-    } else {
-      const headerHeight = Math.min(contentArea.height * 0.16, 85 * uiScale);
-      const timerHeight = Math.round(30 * uiScale);
-      const hintHeight = Math.round(28 * uiScale);
-      const boardHeight = contentArea.height - headerHeight - timerHeight - hintHeight - safeMargin;
-
-      timeKill = {
-        header: {
-          x: contentArea.x,
-          y: contentArea.y,
-          width: contentArea.width,
-          height: headerHeight
-        },
-        timer: {
-          x: contentArea.x,
-          y: contentArea.y + headerHeight + 2,
-          width: contentArea.width,
-          height: timerHeight
-        },
-        board: {
-          x: contentArea.x,
-          y: contentArea.y + headerHeight + timerHeight + safeMargin * 0.25,
-          width: contentArea.width,
-          height: boardHeight
-        },
-        hint: {
-          x: contentArea.x,
-          y: contentArea.y + headerHeight + timerHeight + boardHeight + safeMargin * 0.25,
-          width: contentArea.width,
-          height: hintHeight
-        }
-      };
-    }
+    const ctx = { w, h, uiScale, safeMargin, contentArea };
+    const battle = isCompact ? this.battleCompact(ctx) : this.battleStacked(ctx, isLandscape);
+    const timeKill = isCompact ? this.timeKillCompact(ctx) : this.timeKillStacked(ctx, isLandscape);
 
     return {
       width: w,
@@ -227,6 +104,7 @@ class LayoutManagerImpl {
       dpr: this._dpr,
       orientation,
       isLandscape,
+      isCompact,
       uiScale,
       tokenScale,
       safeMargin,
@@ -237,11 +115,149 @@ class LayoutManagerImpl {
     };
   }
 
-  // Calculate square cell dimensions centered inside any bounding zone
+  // ── Shared helpers ─────────────────────────────────────────────────────────
+
+  // Centre column for a board of cols x rows in compact landscape. Returns the board zone and
+  // the two side columns. The board takes the full content height unless the side columns
+  // would get narrower than sideMinWidth.
+  compactColumns(contentArea, cols, rows) {
+    const { sideMinWidth, gap } = SCREEN_CONFIG.compactLandscape;
+    const pad = SCREEN_CONFIG.boardTrayPad;
+    const maxBoardW = contentArea.width - 2 * (sideMinWidth + gap);
+    const cell = Math.floor(Math.min((contentArea.height - pad * 2) / rows, (maxBoardW - pad * 2) / cols));
+    const zoneW = cell * cols + pad * 2;
+    const zoneX = contentArea.x + (contentArea.width - zoneW) / 2;
+    const sideW = zoneX - gap - contentArea.x;
+    return {
+      gap,
+      board: rect(zoneX, contentArea.y, zoneW, contentArea.height),
+      left: rect(contentArea.x, contentArea.y, sideW, contentArea.height),
+      right: rect(zoneX + zoneW + gap, contentArea.y, sideW, contentArea.height)
+    };
+  }
+
+  // ── Battle ─────────────────────────────────────────────────────────────────
+
+  battleStacked({ uiScale, safeMargin, contentArea }, isLandscape) {
+    const gapBetween = Math.max(18, Math.round(22 * uiScale));
+    const fightersHeight = isLandscape
+      ? Math.min(contentArea.height * 0.28, 140 * uiScale)
+      : Math.min(contentArea.height * 0.2, 110 * uiScale);
+    const countdownHeight = Math.round((isLandscape ? 28 : 24) * uiScale);
+    const hintHeight = isLandscape ? 0 : Math.round(30 * uiScale);
+    const countdownY = contentArea.y + fightersHeight + safeMargin * 0.5;
+    const boardY = countdownY + countdownHeight + gapBetween;
+    const boardHeight = contentArea.y + contentArea.height - boardY - (isLandscape ? 0 : hintHeight + safeMargin);
+
+    const fighters = rect(contentArea.x, contentArea.y, contentArea.width, fightersHeight);
+    const cx = fighters.x + fighters.width / 2;
+    const cy = fighters.y + fighters.height / 2;
+    const vsW = Math.max(90, 110 * uiScale);
+    const vsH = Math.max(54, 68 * uiScale);
+    const cardGap = 8;
+    // Cards never run into the VS badge: on narrow phones they shrink and move to the edges.
+    const cardW = Math.min(fighters.width * 0.38, 220 * uiScale, (fighters.width - vsW - cardGap * 2) / 2);
+    const cardH = Math.min(fighters.height * 0.9, 90 * uiScale);
+    const offset = Math.max(fighters.width * 0.28, vsW / 2 + cardGap + cardW / 2);
+
+    const battle = {
+      mode: 'stacked',
+      fighters,
+      playerCard: centeredRect(cx - offset, cy, cardW, cardH),
+      enemyCard: centeredRect(cx + offset, cy, cardW, cardH),
+      vs: centeredRect(cx, cy, vsW, vsH),
+      countdown: rect(contentArea.x, countdownY, contentArea.width, countdownHeight),
+      board: rect(contentArea.x, boardY, contentArea.width, Math.max(boardHeight, isLandscape ? 180 : 200))
+    };
+    if (!isLandscape) {
+      battle.hint = rect(contentArea.x, boardY + boardHeight + safeMargin * 0.5, contentArea.width, hintHeight);
+    }
+    return battle;
+  }
+
+  battleCompact({ uiScale, contentArea }) {
+    const { board, left, right, gap } = this.compactColumns(contentArea, 8, 7);
+    const cardH = Math.min(contentArea.height * 0.42, 130);
+    const vsW = Math.min(left.width * 0.7, 110);
+    const vsH = Math.max(54, 68 * uiScale);
+    const countdownH = Math.max(18, Math.round(24 * uiScale));
+    return {
+      mode: 'compact',
+      // Fighters zone = the left column (kept for callers that only need a zone)
+      fighters: left,
+      playerCard: rect(left.x, left.y, left.width, cardH),
+      vs: centeredRect(left.x + left.width / 2, left.y + cardH + gap + vsH / 2, vsW, vsH),
+      enemyCard: rect(right.x, right.y, right.width, cardH),
+      // Enemy attack countdown sits under the enemy card
+      countdown: rect(right.x, right.y + cardH + gap * 2, right.width, countdownH),
+      board
+    };
+  }
+
+  // ── Time Kill ──────────────────────────────────────────────────────────────
+
+  timeKillStacked({ w, h, uiScale, safeMargin, contentArea }, isLandscape) {
+    const headerHeight = Math.min(contentArea.height * 0.16, (isLandscape ? 75 : 85) * uiScale);
+    const timerHeight = Math.round((isLandscape ? 28 : 30) * uiScale);
+    // Portrait: the header is too narrow for score cards + effect chips, so the chips get their
+    // own row above the board (portrait boards are width-limited, so this costs no board size).
+    const chipRowHeight = isLandscape ? 0 : TK_CHIP.h + 8;
+    const boardHeight = contentArea.height - headerHeight - timerHeight - chipRowHeight - safeMargin;
+
+    const header = rect(contentArea.x, contentArea.y, contentArea.width, headerHeight);
+    const timer = rect(contentArea.x, contentArea.y + headerHeight + 2, contentArea.width, timerHeight);
+    const boardY = contentArea.y + headerHeight + timerHeight + chipRowHeight + safeMargin * 0.25;
+    const board = rect(contentArea.x, boardY, contentArea.width, boardHeight);
+
+    const hx = header.x + header.width / 2;
+    const hy = header.y + header.height / 2;
+    const cardW = Math.min(180 * uiScale, header.width * 0.32);
+    const cardH = Math.min(65 * uiScale, header.height * 0.7);
+    const chipY = isLandscape ? hy : timer.y + timer.height + chipRowHeight / 2;
+    const chipDx = TK_CHIP.w / 2 + (isLandscape ? 3 : 6);
+    // Landscape: chips sit between the score cards, so keep the cards clear of them.
+    const cardOffset = isLandscape ? Math.max(cardW * 1.1, TK_CHIP.w + 8 + cardW / 2) : cardW * 1.1;
+    return {
+      mode: 'stacked',
+      header,
+      timer,
+      board,
+      scoreCard: centeredRect(hx - cardOffset, hy, cardW, cardH),
+      bestCard: centeredRect(hx + cardOffset, hy, cardW, cardH),
+      freezeChip: { x: hx - chipDx, y: chipY },
+      x5Chip: { x: hx + chipDx, y: chipY },
+      timerBar: centeredRect(w / 2, timer.y + timer.height / 2, Math.min(w * 0.7, 360 * uiScale), Math.max(20, Math.min(26, timer.height)))
+    };
+  }
+
+  timeKillCompact({ uiScale, contentArea }) {
+    const { board, left, right, gap } = this.compactColumns(contentArea, 8, 8);
+    const cardH = Math.max(52, Math.min(70, contentArea.height * 0.2));
+    const cardW = Math.min(left.width, 200);
+    const lx = left.x + left.width / 2;
+    const rx = right.x + right.width / 2;
+    const timerH = Math.max(20, Math.round(24 * uiScale));
+    const timerY = left.y + cardH * 2 + gap * 3 + timerH / 2;
+    return {
+      mode: 'compact',
+      header: left,
+      timer: rect(left.x, timerY - timerH / 2, left.width, timerH),
+      board,
+      scoreCard: centeredRect(lx, left.y + cardH / 2, cardW, cardH),
+      bestCard: centeredRect(lx, left.y + cardH * 1.5 + gap, cardW, cardH),
+      freezeChip: { x: rx, y: right.y + TK_CHIP.h / 2 + 4 },
+      x5Chip: { x: rx, y: right.y + TK_CHIP.h * 1.5 + 4 + gap },
+      timerBar: centeredRect(lx, timerY, Math.min(left.width * 0.95, 260), timerH)
+    };
+  }
+
+  // Square cells centred in the zone. The tray padding is kept free on every side,
+  // so the board tray never touches the zone edge (or the screen edge).
   computeBoardMetrics(cols, rows, zone) {
-    const maxCellW = zone.width / cols;
-    const maxCellH = zone.height / rows;
-    const cellSize = Math.floor(Math.min(maxCellW, maxCellH));
+    const pad = SCREEN_CONFIG.boardTrayPad;
+    const maxCellW = (zone.width - pad * 2) / cols;
+    const maxCellH = (zone.height - pad * 2) / rows;
+    const cellSize = Math.max(1, Math.floor(Math.min(maxCellW, maxCellH)));
     const boardWidth = cellSize * cols;
     const boardHeight = cellSize * rows;
     const startX = zone.x + Math.floor((zone.width - boardWidth) / 2);
@@ -260,4 +276,3 @@ class LayoutManagerImpl {
 }
 
 export const LayoutManager = new LayoutManagerImpl();
-

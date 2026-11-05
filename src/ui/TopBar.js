@@ -2,6 +2,7 @@
 // Universal top bar showing title, sound toggle, settings, and optional back-to-menu button.
 import Phaser from 'phaser';
 import { THEME } from '../config/theme.config.js';
+import { SCREEN_CONFIG } from '../config/screen.config.js';
 import { InkText } from './InkText.js';
 import { LocalizedText } from './LocalizedText.js';
 import { Button } from './Button.js';
@@ -97,7 +98,7 @@ export class TopBar extends Phaser.GameObjects.Container {
   }
 
   updateLayout(width, rawHeight) {
-    const height = Math.max(rawHeight || 60, 56);
+    const height = Math.max(rawHeight || 60, SCREEN_CONFIG.topBarMinHeight);
     this.bgGraphics.clear();
     this.bgGraphics.fillStyle(THEME.colors.playfieldTray, 0.96);
     this.bgGraphics.fillRect(0, 0, width, height);
@@ -121,12 +122,24 @@ export class TopBar extends Phaser.GameObjects.Container {
     const rightOffset = width - 36;
     this.settingsBtn.setPosition(0, 0);
     this.muteBtn.setPosition(-52, 0);
+    let leftmostEdge = -52 - 22; // left edge of the mute button
 
     if (this.menuBtn) {
-      this.menuBtn.setPosition(-140, 0);
+      // Narrow phones: a slimmer Menu button so it does not cover the title
+      const menuW = width < 480 ? 64 : 100;
+      const menuX = leftmostEdge - 16 - menuW / 2;
+      this.menuBtn.resize(menuW, 44);
+      this.menuBtn.setPosition(menuX, 0);
+      leftmostEdge = menuX - menuW / 2;
     }
 
     this.rightCluster.setPosition(rightOffset, height / 2);
+
+    // Shrink the title block only if it still does not fit next to the buttons
+    this.leftCluster.setScale(1);
+    const available = rightOffset + leftmostEdge - 8 - 18;
+    const needed = Math.max(this.titleText.width, this.subText.width);
+    if (needed > available) this.leftCluster.setScale(Math.max(0.7, available / needed));
   }
 }
 

@@ -9,7 +9,6 @@ import { Button } from '../ui/Button.js';
 import { InkText } from '../ui/InkText.js';
 import { LocalizedText } from '../ui/LocalizedText.js';
 import { SettingsPopup } from '../ui/SettingsPopup.js';
-import { TutorialPopup } from '../ui/TutorialPopup.js';
 import { LayoutManager } from '../systems/LayoutManager.js';
 import { AudioManager } from '../systems/AudioManager.js';
 import { AssetResolver } from '../systems/AssetResolver.js';
@@ -234,19 +233,6 @@ export class MemeBookScene extends Phaser.Scene {
   openSettingsPopup() {
     if (this.currentPopup) return;
     this.currentPopup = new SettingsPopup(this, {
-      onClose: () => {
-        this.currentPopup = null;
-      },
-      onHowToPlay: () => {
-        this.currentPopup = null;
-        this.openTutorialPopup();
-      }
-    });
-  }
-
-  openTutorialPopup() {
-    if (this.currentPopup) return;
-    this.currentPopup = new TutorialPopup(this, {
       onClose: () => {
         this.currentPopup = null;
       }

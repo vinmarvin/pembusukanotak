@@ -8,12 +8,11 @@ import { settle } from './settle.js';
 import { shuffle } from './shuffle.js';
 import { hasMove } from './hasMove.js';
 
+const POWER_UPS = ['line', 'bomb', 'freeze', 'x5'];
+
 export function resolveMove(grid, move, rng, options = {}) {
   const { r1, c1, r2, c2 } = move;
   const isTimeKill = options.isTimeKill ?? false;
-  const hardChainCap = GAMEPLAY.board.hardChainCap || 60;
-  const scorePerCandy = GAMEPLAY.board.scorePerCandy || 100;
-  const powerUpsList = ['line', 'bomb', 'freeze', 'x5'];
 
   // Check adjacency
   const dist = Math.abs(r1 - r2) + Math.abs(c1 - c2);
@@ -36,29 +35,55 @@ export function resolveMove(grid, move, rng, options = {}) {
     return { valid: false };
   }
 
+  // Time Kill Decision 13: 4+ match in step 0 turns the candy moved into a random powerup
+  const pickPowerUp = (stepIndex, { matchedCells, runs, longestRun }) => {
+    if (stepIndex !== 0 || !isTimeKill || longestRun < 4) return null;
+    // The candy the player moved (r2, c2) gets the power-up if part of the match, else (r1, c1)
+    const target = matchedCells.find((m) => m.r === r2 && m.c === c2) ||
+                   matchedCells.find((m) => m.r === r1 && m.c === c1) ||
+                   matchedCells[0];
+    const randomPower = rng ? rng.gameChoice(POWER_UPS) : 'bomb';
+    const matchingRun = runs.find((run) => run.cells.some((cell) => cell.r === target.r && cell.c === target.c));
+    const orientation = matchingRun?.orientation || (rng && rng.game() < 0.5 ? 'h' : 'v');
+    return { ...target, power: randomPower, orientation };
+  };
+
+  const { steps, reshuffled } = runCascades(grid, rng, { startIndex: 0, pickPowerUp });
+
+  return {
+    valid: true,
+    steps,
+    grid,
+    reshuffled
+  };
+}
+
+// Resolves every match already on the board as cascade steps (used after a power-up is tapped,
+// so new matches made by the refill clear and score like normal cascades instead of being
+// silently rewritten). Steps are numbered from `startIndex`.
+export function resolveCascades(grid, rng, options = {}) {
+  return runCascades(grid, rng, { startIndex: options.startIndex ?? 1, pickPowerUp: null });
+}
+
+// Shared loop: find runs, clear the union (power-ups in the cleared set trigger once each),
+// gravity, refill from the top, until no matches remain. Then free reshuffle if no move is left.
+function runCascades(grid, rng, { startIndex, pickPowerUp }) {
+  const hardChainCap = GAMEPLAY.board.hardChainCap || 60;
+  const scorePerCandy = GAMEPLAY.board.scorePerCandy || 100;
   const steps = [];
-  let stepIndex = 0;
+  let stepIndex = startIndex;
+  let count = 0;
   let powerSpawned = null;
 
-  while (stepIndex < hardChainCap) {
-    const { matchedCells, runs, longestRun } = findMatches(grid);
+  while (count < hardChainCap) {
+    const matchInfo = findMatches(grid);
+    const { matchedCells, runs, longestRun } = matchInfo;
     if (matchedCells.length === 0) {
       break;
     }
 
-    // Time Kill Decision 13: 4+ match in step 0 turns the candy moved into a random powerup
-    let createdPowerUpCell = null;
-    if (stepIndex === 0 && isTimeKill && longestRun >= 4) {
-      // The candy the player moved (r2, c2) gets the power-up if part of the match, else (r1, c1)
-      const target = matchedCells.find((m) => m.r === r2 && m.c === c2) ||
-                     matchedCells.find((m) => m.r === r1 && m.c === c1) ||
-                     matchedCells[0];
-      const randomPower = rng ? rng.gameChoice(powerUpsList) : 'bomb';
-      const matchingRun = runs.find((run) => run.cells.some((cell) => cell.r === target.r && cell.c === target.c));
-      const orientation = matchingRun?.orientation || (rng && rng.game() < 0.5 ? 'h' : 'v');
-      createdPowerUpCell = { ...target, power: randomPower, orientation };
-      powerSpawned = createdPowerUpCell;
-    }
+    const createdPowerUpCell = pickPowerUp ? pickPowerUp(stepIndex, matchInfo) : null;
+    if (createdPowerUpCell) powerSpawned = createdPowerUpCell;
 
     // Determine all cleared cells (matches + triggered power-ups)
     const clearedMap = new Map();
@@ -100,7 +125,7 @@ export function resolveMove(grid, move, rng, options = {}) {
 
     // If a powerup was created on (r, c) this step, do not remove that cell from grid; upgrade it instead!
     const clearedList = [];
-    for (const [key, entry] of clearedMap.entries()) {
+    for (const [, entry] of clearedMap.entries()) {
       if (
         createdPowerUpCell &&
         entry.r === createdPowerUpCell.r &&
@@ -131,10 +156,11 @@ export function resolveMove(grid, move, rng, options = {}) {
     });
 
     stepIndex++;
+    count++;
   }
 
   // If hardChainCap reached, settle to break endless cycle
-  if (stepIndex >= hardChainCap) {
+  if (count >= hardChainCap) {
     settle(grid, rng);
   }
 
@@ -145,11 +171,5 @@ export function resolveMove(grid, move, rng, options = {}) {
     reshuffled = true;
   }
 
-  return {
-    valid: true,
-    steps,
-    grid,
-    reshuffled
-  };
+  return { steps, reshuffled };
 }
-

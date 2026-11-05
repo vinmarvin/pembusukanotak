@@ -4,7 +4,7 @@ import { GAMEPLAY } from '../../config/gameplay.config.js';
 import { SaveManager } from '../../systems/SaveManager.js';
 import { applyPowerUp } from '../board/applyPowerUp.js';
 import { applyGravityAndRefill } from '../board/gravity.js';
-import { settle } from '../board/settle.js';
+import { resolveCascades } from '../board/resolveMove.js';
 
 export class TimeKillEngine {
   constructor(options = {}) {
@@ -118,14 +118,7 @@ export class TimeKillEngine {
       this.isNewBest = true;
       this.bestScore = this.score;
     }
-
-    // Check Score Hunter achievement
-    if (this.score >= GAMEPLAY.achievements.scoreHunterScore) {
-      SaveManager.update((s) => {
-        if (!s.achievements) s.achievements = {};
-        s.achievements.scoreHunter = true;
-      });
-    }
+    // Best score and Score Hunter are saved only in finishRun (timer reached 0). Leaving mid-run saves nothing.
 
     return {
       pointsGained,
@@ -165,30 +158,37 @@ export class TimeKillEngine {
     }
 
     const { falls, spawns } = applyGravityAndRefill(grid, this.rng);
-    settle(grid, this.rng);
+
+    const tapStep = { index: 0, cleared: clearedWithCandies, falls, spawns, powerEvents: effects };
+
+    // The refill can line up new matches. Resolve them as real cascades (animated, scored, and
+    // triggering any power candy they hit) instead of settle(), which silently rewrote those
+    // candies to other types and made the board around the blast change with no animation.
+    const { steps: cascadeSteps, reshuffled } = resolveCascades(grid, this.rng, { startIndex: 1 });
+    for (const step of cascadeSteps) {
+      for (const pe of step.powerEvents || []) {
+        if (pe.type === 'freeze') this.freezeRemaining += pe.durationSec;
+        else if (pe.type === 'x5') this.scoreMultRemaining = pe.durationSec;
+      }
+    }
 
     const mult = this.scoreMultRemaining > 0 ? this.scoreMultiplier : 1;
-    const points = cleared.length * GAMEPLAY.board.scorePerCandy * mult;
+    const totalCleared = cleared.length + cascadeSteps.reduce((n, st) => n + st.cleared.length, 0);
+    const points = totalCleared * GAMEPLAY.board.scorePerCandy * mult;
     this.score += points;
 
     if (this.score > this.bestScore) {
       this.isNewBest = true;
       this.bestScore = this.score;
     }
-
-    if (this.score >= GAMEPLAY.achievements.scoreHunterScore) {
-      SaveManager.update((s) => {
-        if (!s.achievements) s.achievements = {};
-        s.achievements.scoreHunter = true;
-      });
-    }
-
     return {
       powerType,
       cleared: clearedWithCandies,
       effects,
       falls,
       spawns,
+      steps: [tapStep, ...cascadeSteps],
+      reshuffled,
       pointsGained: points,
       totalScore: this.score,
       grid

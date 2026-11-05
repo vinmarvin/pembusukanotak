@@ -27,6 +27,11 @@ export function classifyAsset(filePath, overrides = {}) {
 }
 
 function classifyAudio(norm, originalPath) {
+  // Low-score Time Kill easter egg sound (audio/sfx_less5000.mp3). Checked first: it contains 'sfx'.
+  if (norm.includes('less5000')) {
+    return { key: 'sfx.egg.less5000', kind: 'audio', category: 'sfx' };
+  }
+
   // BGM matching
   if (norm.includes('bgm') || norm.includes('music')) {
     if (norm.includes('timeattack') || norm.includes('timekill') || norm.includes('timekiller') || norm.includes('tk')) {
@@ -191,6 +196,12 @@ export function classifyEasterEgg(filePath) {
   const norm = normalizeName(fileName);
   const isVideo = /\.(mp4|webm|mov|m4v)$/i.test(fileName);
   const isAudio = /\.(mp3|m4a|wav|ogg|aac)$/i.test(fileName);
+  const isImage = /\.(png|jpe?g|webp|gif)$/i.test(fileName);
+  if (isImage) {
+    // "5000.png" -> egg.less5000 (image for the low-score Time Kill egg)
+    if (norm.includes('5000')) return { key: 'egg.less5000', kind: 'image', category: 'easteregg' };
+    return null;
+  }
   if (!isVideo && !isAudio) return null;
   const kind = isVideo ? 'video' : 'audio';
 

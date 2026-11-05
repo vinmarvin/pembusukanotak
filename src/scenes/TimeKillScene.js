@@ -14,6 +14,7 @@ import { Slider } from '../ui/Slider.js';
 import { Toggle } from '../ui/Toggle.js';
 import { SettingsPopup } from '../ui/SettingsPopup.js';
 import { TutorialPopup } from '../ui/TutorialPopup.js';
+import { shouldShowTutorial } from '../core/tutorials.js';
 import { BoardView } from '../ui/BoardView.js';
 import { LayoutManager } from '../systems/LayoutManager.js';
 import { InputManager } from '../systems/InputManager.js';
@@ -21,6 +22,9 @@ import { AudioManager } from '../systems/AudioManager.js';
 import { SaveManager } from '../systems/SaveManager.js';
 import { EventBus } from '../systems/EventBus.js';
 import { TimeKillEngine } from '../core/timekill/timekill.js';
+import { EasterEggPlayer } from '../systems/EasterEggPlayer.js';
+import { isLowScoreEgg } from '../core/eastereggs.js';
+import { EASTER_EGGS_CONFIG } from '../config/eastereggs.config.js';
 import { recordClearedCandies } from '../core/unlocks/memebook.js';
 import { checkAchievements } from '../core/unlocks/achievements.js';
 import { createBoard, resolveMove } from '../core/board/index.js';
@@ -33,10 +37,17 @@ export class TimeKillScene extends Phaser.Scene {
   }
 
   create() {
+    // Phaser reuses this scene instance on every visit, so per-run state must be reset here.
+    // A stale popup (left by Pause > Menu) or isEnding flag froze the timer and the Menu button.
+    this.currentPopup = null;
+    this.isEnding = false;
+    this.timerEvent = null;
+
     this.cols = GAMEPLAY.board.cols || 8;
     this.rows = GAMEPLAY.board.rowsTimeKill || 8; // 8x8 for Time Kill per Decision 1
 
     this.engine = new TimeKillEngine({ rng });
+    this.eggPlayer = new EasterEggPlayer(this);
     this.boardGrid = createBoard(this.cols, this.rows, rng);
 
     // Top Bar
@@ -129,12 +140,6 @@ export class TimeKillScene extends Phaser.Scene {
     // 8x8 Board View
     this.boardView = new BoardView(this, this.cols, this.rows);
 
-    // Hint line at bottom
-    this.hintLine = new LocalizedText(this, 0, 0, 'timekill.hint', {}, {
-      fontSize: '12px',
-      color: THEME.colors.mutedGreyHex
-    });
-
     // Input Manager
     this.inputManager = new InputManager({
       scene: this,
@@ -153,9 +158,15 @@ export class TimeKillScene extends Phaser.Scene {
     });
 
     this.applyLayout(LayoutManager.getLayout());
+
+    // First time this mode is played: show its tutorial. The game waits behind the popup.
+    if (shouldShowTutorial(SaveManager.data, 'timeKill')) {
+      this.openTutorialPopup();
+    }
     AudioManager.playBgm('bgm.timekill');
 
     this.events.once('shutdown', () => {
+      this.currentPopup = null;
       if (this.unsubLayout) this.unsubLayout();
       if (this.unsubSettings) this.unsubSettings();
       if (this.timerEvent) this.timerEvent.remove(false);
@@ -249,38 +260,32 @@ export class TimeKillScene extends Phaser.Scene {
     this.scoreValue.setText(`${res.totalScore}`);
 
     SaveManager.update((s) => {
-      recordClearedCandies(s, [{ cleared: res.cleared }]);
+      recordClearedCandies(s, res.steps);
       checkAchievements(s);
     });
 
     this.boardView.isAnimating = true;
     this.inputManager.setEnabled(false);
+    this.boardGrid = res.grid;
 
-    // Trigger visual effects for the tapped powerup
-    if (res.effects && res.effects.length > 0) {
-      for (const eff of res.effects) {
-        this.boardView.renderPowerEventFx(eff);
+    const finish = () => {
+      this.boardView.isAnimating = false;
+      if (this.engine.isGameOver) {
+        this.endGame();
+      } else {
+        this.inputManager.setEnabled(true);
       }
-    }
+    };
 
-    this.boardView.animateSingleStep(
-      {
-        cleared: res.cleared,
-        falls: res.falls,
-        spawns: res.spawns,
-        powerEvents: res.effects
-      },
-      () => {
-        this.boardGrid = res.grid;
-        this.boardView.initGrid(this.boardGrid, this.boardView.boardMetrics);
-        this.boardView.isAnimating = false;
-        if (this.engine.isGameOver) {
-          this.endGame();
-        } else {
-          this.inputManager.setEnabled(true);
-        }
+    // Tap clear first, then any cascades the refill caused, each animated like a normal move.
+    // (Power FX are drawn by animateSingleStep from each step's powerEvents.)
+    this.boardView.animateSteps(res.steps, null, () => {
+      if (res.reshuffled) {
+        this.boardView.animateReshuffle(this.boardGrid, finish);
+      } else {
+        finish();
       }
-    );
+    });
   }
 
   update(time, delta) {
@@ -324,11 +329,18 @@ export class TimeKillScene extends Phaser.Scene {
     this.isEnding = true;
     this.inputManager.setEnabled(false);
     this.time.delayedCall(400, () => {
-      this.scene.start('Results', {
-        score: this.engine.score,
-        bestScore: this.engine.bestScore,
-        isNewBest: this.engine.isNewBest
-      });
+      const goToResults = () => {
+        this.scene.start('Results', {
+          score: this.engine.score,
+          bestScore: this.engine.bestScore,
+          isNewBest: this.engine.isNewBest
+        });
+      };
+      // Low-score easter egg plays before the player sees the final score.
+      if (isLowScoreEgg(this.engine.score) && this.eggPlayer.playImageWithSound(EASTER_EGGS_CONFIG.lowScore, goToResults)) {
+        return;
+      }
+      goToResults();
     });
   }
 
@@ -400,7 +412,11 @@ export class TimeKillScene extends Phaser.Scene {
       textColor: '#FFFFFF',
       fontSize: '16px',
       onClick: () => {
+        // Leaving mid-run: the run is abandoned, so nothing (best score) is saved.
         popup.destroy();
+        this.currentPopup = null;
+        this.isEnding = true;
+        this.inputManager.setEnabled(false);
         this.scene.start('MainMenu');
       }
     });
@@ -413,32 +429,27 @@ export class TimeKillScene extends Phaser.Scene {
     const { width, height, isLandscape, uiScale, topBar, timeKill } = layout;
     this.topBar.updateLayout(width, topBar.height);
 
-    const hZone = timeKill.header;
-    this.headerContainer.setPosition(hZone.x + hZone.width / 2, hZone.y + hZone.height / 2);
+    // Score cards, effect chips and timer: absolute rectangles from LayoutManager (header row
+    // on laptops/tablets, side columns on short landscape screens).
+    this.headerContainer.setPosition(0, 0);
+    const placeScore = (r, card, label, value) => {
+      const cx = r.x + r.width / 2;
+      const cy = r.y + r.height / 2;
+      card.resize(r.width, r.height);
+      card.setPosition(cx, cy);
+      label.setPosition(cx, cy - r.height * 0.25);
+      value.setPosition(cx, cy + r.height * 0.18);
+    };
+    placeScore(timeKill.scoreCard, this.scoreCard, this.scoreLabel, this.scoreValue);
+    placeScore(timeKill.bestCard, this.bestScoreCard, this.bestScoreLabel, this.bestScoreValue);
 
-    const cardW = Math.min(180 * uiScale, hZone.width * 0.32);
-    const cardH = Math.min(65 * uiScale, hZone.height * 0.7);
-
-    this.scoreCard.resize(cardW, cardH);
-    this.scoreCard.setPosition(-cardW * 1.1, 0);
-    this.scoreLabel.setPosition(-cardW * 1.1, -cardH * 0.25);
-    this.scoreValue.setPosition(-cardW * 1.1, cardH * 0.18);
-
-    this.bestScoreCard.resize(cardW, cardH);
-    this.bestScoreCard.setPosition(cardW * 1.1, 0);
-    this.bestScoreLabel.setPosition(cardW * 1.1, -cardH * 0.25);
-    this.bestScoreValue.setPosition(cardW * 1.1, cardH * 0.18);
-
-    // Active effect chips in center
-    this.freezeChipContainer.setPosition(-60, 0);
-    this.x5ChipContainer.setPosition(60, 0);
+    this.freezeChipContainer.setPosition(timeKill.freezeChip.x, timeKill.freezeChip.y);
+    this.x5ChipContainer.setPosition(timeKill.x5Chip.x, timeKill.x5Chip.y);
 
     // Timer Row
-    const tZone = timeKill.timer;
-    const timerY = tZone ? (tZone.y + tZone.height / 2) : (hZone.y + hZone.height + 16);
-    const timerH = tZone ? Math.max(20, Math.min(26, tZone.height)) : 24;
-    this.timerContainer.setPosition(width / 2, timerY);
-    this.timerGauge.resize(Math.min(width * 0.70, 360 * uiScale), timerH);
+    const tb = timeKill.timerBar;
+    this.timerContainer.setPosition(tb.x + tb.width / 2, tb.y + tb.height / 2);
+    this.timerGauge.resize(tb.width, tb.height);
 
     // 8x8 Board Placement
     const metrics = LayoutManager.computeBoardMetrics(this.cols, this.rows, timeKill.board);
@@ -448,9 +459,6 @@ export class TimeKillScene extends Phaser.Scene {
       this.boardView.updateMetrics(metrics);
     }
     this.inputManager.setBoardMetrics(metrics);
-
-    // Hint line at bottom
-    this.hintLine.setPosition(width / 2, height - 18);
 
     if (this.currentPopup) {
       this.currentPopup.reposition(width, height);
@@ -464,10 +472,6 @@ export class TimeKillScene extends Phaser.Scene {
       onClose: () => {
         this.currentPopup = null;
         this.checkRestoreInput();
-      },
-      onHowToPlay: () => {
-        this.currentPopup = null;
-        this.openTutorialPopup();
       }
     });
   }
@@ -476,6 +480,7 @@ export class TimeKillScene extends Phaser.Scene {
     if (this.currentPopup) return;
     this.inputManager.setEnabled(false);
     this.currentPopup = new TutorialPopup(this, {
+      mode: 'timeKill',
       onClose: () => {
         this.currentPopup = null;
         if (onCloseCallback) {

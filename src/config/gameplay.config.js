@@ -15,7 +15,7 @@ export const GAMEPLAY = {
     freezeSec: 15, scoreMultiplier: 5, scoreMultiplierSec: 10, bombSize: 4
   },
   memeBook: { candyUnlockCount: 100 },
-  achievements: { scoreHunterScore: 65000 },
+  achievements: { scoreHunterScore: 100000 },
   balanceSim: { secondsPerMatch: 4, candiesPerMatch: 3 },
   debug: { allowQueryFlag: true, attackMultiplier: 10 }
 };

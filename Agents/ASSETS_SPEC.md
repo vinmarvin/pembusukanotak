@@ -30,7 +30,7 @@ Normalize names first: lowercase, letters and digits only (`Tung_Tung-Sahur.png`
 
 **Audio keys**: `bgm.menu` (`menu`, `start`, `title`, `main`), `bgm.story` (`story`), `bgm.timekill` (`timekill`, `time kill`, `timekiller`, `tk`), `sfx.hit` (`hit`, `damage`), `sfx.boss.b1` to `sfx.boss.b5` (same hints as the bosses above, `b5` first), `sfx.minion.<name>` (a monster file whose name matches a minion name). Optional if present: `sfx.match`, `sfx.swap`, `sfx.invalid`, `sfx.win`, `sfx.lose`, `sfx.click`, `sfx.powerup`, `sfx.freeze`. Missing optional sfx get short generated sounds. Missing bgm means silence for that scene.
 
-**Easter egg media** (`easteregg/`, owner folder, read-only like `visual/` and `audio/`): copied as-is to `public/assets/easteregg/` and listed under `easterEggs` in the manifest. `67`/`earrape` -> `egg.c67`; `ambatukam`/`termuwani` -> `egg.ambatukam`; `skibid`/`jumpscare` -> `egg.skibidi` (video). A missing file just disables that egg.
+**Easter egg media** (`easteregg/`, owner folder, read-only like `visual/` and `audio/`): copied as-is to `public/assets/easteregg/` and listed under `easterEggs` in the manifest. `67`/`earrape` -> `egg.c67`; `ambatukam`/`termuwani` -> `egg.ambatukam`; `skibid`/`jumpscare` -> `egg.skibidi` (video); image `5000` -> `egg.less5000`. The low-score egg sound lives in `audio/`: `less5000` -> `sfx.egg.less5000`. A missing file just disables that egg.
 
 ## 4. Size normalization (assets have different sizes; in game they must look consistent)
 - Never stretch: scaleX always equals scaleY.

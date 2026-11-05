@@ -144,13 +144,13 @@ describe('Phase 6 Unlocks & Achievements Core', () => {
       expect(unlockFullyBrainRot(save)).toBe(false);
     });
 
-    it('Score Hunter unlocks at 65000 or more in Time Kill', () => {
+    it('Score Hunter unlocks at 100000 or more in Time Kill', () => {
       const save = SaveManager.data;
-      save.bestScore = 44900;
+      save.bestScore = 99900;
       checkAchievements(save);
       expect(save.achievements.scoreHunter).toBe(false);
 
-      save.bestScore = 65000;
+      save.bestScore = 100000;
       const newly = checkAchievements(save);
       expect(newly).toContain('scoreHunter');
       expect(save.achievements.scoreHunter).toBe(true);

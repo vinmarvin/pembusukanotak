@@ -1,5 +1,6 @@
 // src/systems/SaveManager.js
 // Versioned persistence with error handling and fallback defaults.
+import { EventBus } from './EventBus.js';
 
 const SAVE_KEY = 'po_save_v1';
 
@@ -20,6 +21,7 @@ export function getDefaultSave() {
     },
     bestScore: 0,
     tutorialSeen: false,
+    timeKillTutorialSeen: false,
     settings: {
       musicVolume: 70,
       sfxVolume: 80,
@@ -86,12 +88,15 @@ class SaveManagerImpl {
       Object.assign(this._data, updater);
     }
     this.save();
+    // Lets open screens (e.g. main menu counters) refresh as soon as progress changes.
+    EventBus.emit('save:changed', this._data);
     return this._data;
   }
 
   reset() {
     this._data = getDefaultSave();
     this.save();
+    EventBus.emit('save:changed', this._data);
     return this._data;
   }
 }

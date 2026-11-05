@@ -65,7 +65,6 @@ export default {
     score: 'Score',
     bestScore: 'Best High Score',
     timeLeft: 'Time Left',
-    hint: 'Drag or tap to swap. Wrong swap: -10 s',
     effect: {
       freeze: 'Freeze: {sec}s',
       x5: '5x Score: {sec}s'
@@ -121,7 +120,7 @@ export default {
     },
     scoreHunter: {
       title: 'Score Hunter',
-      desc: 'Reach 65000 score in Time Kill ({current}/{target})'
+      desc: 'Reach 100000 score in Time Kill ({current}/{target})'
     },
     memeCurator: {
       title: 'Meme Curator',
@@ -184,6 +183,26 @@ export default {
     step3: {
       title: 'Watch Out!',
       desc: 'The enemy countdown bar ticks down. Bosses use wild special effects!'
+    },
+    timeKill: {
+      step1: {
+        title: 'Match for Points',
+        desc: 'Swap neighbouring candies to line up 3 or more. Every candy you clear is worth {points} points.'
+      },
+      step2: {
+        title: 'Race the Clock',
+        desc: 'You have {min} minutes. A wrong swap costs {penalty} s. A move that sets off a chain reaction gives +{combo} s.'
+      },
+      step3: {
+        title: 'Power-Ups',
+        desc: 'Match 4 or more for +{bonus} s and a power candy. Match it or tap it twice: line, bomb, freeze ({freeze} s) or score x{mult} ({x5} s).'
+      },
+      step4: {
+        title: 'Go for the High Score!',
+        desc: 'No enemies here. Reach as high a score as you can before time runs out, and beat your best!'
+      },
+      minusSec: '-{sec} s',
+      plusSec: '+{sec} s'
     },
     skip: 'Skip Tutorial',
     gotIt: 'Got It!'

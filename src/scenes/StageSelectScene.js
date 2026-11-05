@@ -9,7 +9,6 @@ import { Button } from '../ui/Button.js';
 import { InkText } from '../ui/InkText.js';
 import { LocalizedText } from '../ui/LocalizedText.js';
 import { SettingsPopup } from '../ui/SettingsPopup.js';
-import { TutorialPopup } from '../ui/TutorialPopup.js';
 import { SpriteFit } from '../ui/SpriteFit.js';
 import { ScrollableText } from '../ui/ScrollableText.js';
 import { LayoutManager } from '../systems/LayoutManager.js';
@@ -166,19 +165,6 @@ export class StageSelectScene extends Phaser.Scene {
     this.currentPopup = new SettingsPopup(this, {
       onClose: () => {
         this.currentPopup = null;
-      },
-      onHowToPlay: () => {
-        this.currentPopup = null;
-        this.openTutorialPopup();
-      }
-    });
-  }
-
-  openTutorialPopup() {
-    if (this.currentPopup) return;
-    this.currentPopup = new TutorialPopup(this, {
-      onClose: () => {
-        this.currentPopup = null;
       }
     });
   }
@@ -237,7 +223,22 @@ export class StageSelectScene extends Phaser.Scene {
 
     container.selectRing = selectRing;
     container.stageNum = stage;
+    container.nodeSize = size;
+    container.circleParts = [selectRing, panel, label];
+    container.nameText = nameText;
     return container;
+  }
+
+  // Shrink the node circles on short maps (phones sideways). The area names keep their font size
+  // so they stay readable; they just move up with the smaller circle.
+  scaleNodes(mapH) {
+    const scale = Math.min(1, Math.max(0.6, mapH / 420));
+    this.nodeButtons.forEach((node) => {
+      node.circleParts.forEach((part) => part.setScale(scale));
+      node.nameText.setY((node.nodeSize / 2) * scale + 14);
+      node.setSize(node.nodeSize * scale, node.nodeSize * scale);
+      if (node.input) node.input.hitArea.setSize(node.nodeSize * scale, node.nodeSize * scale);
+    });
   }
 
   updateNodeHighlights() {
@@ -313,8 +314,11 @@ export class StageSelectScene extends Phaser.Scene {
       this.mapContainer.setPosition(marginX + mapW / 2, topY + contentH / 2);
       this.mapPanel.resize(mapW, contentH);
 
-      this.sidePanelContainer.setPosition(marginX + mapW + gap + sideW / 2, topY + contentH / 2);
-      this.infoPanel.resize(sideW, contentH);
+      // The Back button only sits under the map, so on short screens the info panel can use
+      // the full height down to the bottom margin.
+      const sideH = height < 500 ? height - topY - 8 : contentH;
+      this.sidePanelContainer.setPosition(marginX + mapW + gap + sideW / 2, topY + sideH / 2);
+      this.infoPanel.resize(sideW, sideH);
 
       // Node positions spread across the brain map
       const nodeCoords = [
@@ -331,7 +335,8 @@ export class StageSelectScene extends Phaser.Scene {
         node.setPosition(nodeCoords[idx].x, nodeCoords[idx].y);
       });
 
-      this.layoutSidePanel(sideW, contentH);
+      this.scaleNodes(contentH);
+      this.layoutSidePanel(sideW, sideH);
 
       // Back button positioned higher from screen bottom with ample clearance
       this.backBtn.setPosition(100, height - 38);
@@ -362,6 +367,7 @@ export class StageSelectScene extends Phaser.Scene {
         node.setPosition(nodeCoords[idx].x, nodeCoords[idx].y);
       });
 
+      this.scaleNodes(mapH);
       this.layoutSidePanel(sideW, sideH);
 
       // Back button centered and elevated in portrait
@@ -379,47 +385,51 @@ export class StageSelectScene extends Phaser.Scene {
   }
 
   layoutSidePanel(sideW, sideH) {
-    // Dynamic vertical layout distributing elements cleanly across full sideH
+    // Vertical layout across the full panel height. Short panels (phones sideways) use tighter
+    // spacing, a smaller boss box and button, and hide the lore box if there is no room for it.
+    const compact = sideH < 400;
     const topH = -sideH / 2;
     const botH = sideH / 2;
 
     // Header (Stage & Area Titles)
-    const stageY = topH + 32;
-    const areaY = topH + 62;
+    const stageY = topH + (compact ? 22 : 32);
+    const areaY = stageY + (compact ? 24 : 30);
     this.stageTitle.setPosition(0, stageY);
     this.areaTitle.setPosition(0, areaY);
 
     // Boss Portrait Box
     const boxW = Math.min(sideW - 36, 260);
-    const boxH = Math.min(170, Math.max(110, Math.round(sideH * 0.28)));
-    const bossCenterY = areaY + 20 + boxH / 2;
+    const boxH = compact
+      ? Math.min(120, Math.max(64, Math.round(sideH * 0.27)))
+      : Math.min(170, Math.max(110, Math.round(sideH * 0.28)));
+    const bossCenterY = areaY + (compact ? 14 : 20) + boxH / 2;
     this.bossBox.setPosition(0, bossCenterY);
     this.bossBox.resize(boxW, boxH);
     this.bossSprite.setPosition(0, bossCenterY);
 
     // Boss Name
-    const nameY = bossCenterY + boxH / 2 + 18;
-    this.bossName.setPosition(0, nameY);
     this.bossName.setWordWrapWidth(sideW - 32);
+    const nameH = this.bossName.height || 20;
+    const nameY = bossCenterY + boxH / 2 + (compact ? 6 : 8) + nameH / 2;
+    this.bossName.setPosition(0, nameY);
 
     // Bottom section: Start Button
     const btnW = Math.min(sideW - 36, 280);
-    const btnH = 52;
-    const startBtnY = botH - 38;
+    const btnH = compact ? 44 : 52;
+    const startBtnY = botH - (compact ? 10 : 14) - btnH / 2;
     this.startBtn.setPosition(0, startBtnY);
     this.startBtn.resize(btnW, btnH);
 
-    // Middle section: Scrollable Description Box filling remaining space
-    const nameBottom = nameY + (this.bossName.height ? this.bossName.height / 2 : 10);
-    const descTopLimit = nameBottom + 12;
-    const descBottomLimit = startBtnY - 30;
-    const availableDescH = Math.max(80, descBottomLimit - descTopLimit);
-
-    const descCenterY = descTopLimit + availableDescH / 2;
-    const descW = sideW - 32;
-
-    this.bossDescBox.setPosition(0, descCenterY);
-    this.bossDescBox.resize(descW, availableDescH);
+    // Middle section: scrollable description box in the space that is left
+    const descTopLimit = nameY + nameH / 2 + (compact ? 6 : 12);
+    const descBottomLimit = startBtnY - btnH / 2 - (compact ? 6 : 12);
+    const availableDescH = descBottomLimit - descTopLimit;
+    const minDescH = 40;
+    this.bossDescBox.setVisible(availableDescH >= minDescH);
+    if (availableDescH >= minDescH) {
+      this.bossDescBox.setPosition(0, descTopLimit + availableDescH / 2);
+      this.bossDescBox.resize(sideW - 32, availableDescH);
+    }
   }
 
   drawBrainDecoration(mapW, mapH) {

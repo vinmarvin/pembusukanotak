@@ -8,6 +8,12 @@ export function createEggCounts() {
   return counts;
 }
 
+// Time Kill low-score egg: fires when a finished run's score is at or below the threshold.
+export function isLowScoreEgg(score, cfg = EASTER_EGGS_CONFIG.lowScore) {
+  if (!cfg || typeof score !== 'number' || Number.isNaN(score)) return false;
+  return score <= cfg.maxScore;
+}
+
 // Count one click on egg `id`. Returns the egg config when this click reaches the target
 // (and resets that counter), otherwise null. Unknown ids are ignored.
 export function registerEggClick(counts, id, eggs = EASTER_EGGS_CONFIG.eggs) {

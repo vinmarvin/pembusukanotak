@@ -11,6 +11,11 @@ export const EASTER_EGGS_CONFIG = {
     // The Skibidi toilet candy: jumpscare video in a popup that cannot be closed
     skibidi: { clicks: 82, media: 'egg.skibidi', type: 'video' }
   },
+  // Time Kill low-score egg (owner): when a run ends with score <= maxScore, before the results
+  // screen, show `image` in a popup and play `sound`. The popup can only be closed after the sound ends.
+  lowScore: { maxScore: 5000, image: 'egg.less5000', sound: 'sfx.egg.less5000' },
+  // The low-score image popup fits inside this share of the screen.
+  image: { maxWidthFrac: 0.8, maxHeightFrac: 0.62, framePad: 10, closeBtnSize: 44 },
   // The video popup fits inside this share of the screen.
   video: { maxWidthFrac: 0.86, maxHeightFrac: 0.7, framePad: 10 },
   // If "complete" never arrives (decode error, blocked autoplay), unlock after duration + this.

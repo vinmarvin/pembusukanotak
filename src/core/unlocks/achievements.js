@@ -32,7 +32,7 @@ export function checkAchievements(saveData) {
 
   // 3. Score Hunter: Reach target score in Time Kill
   if (!saveData.achievements.scoreHunter) {
-    const target = GAMEPLAY.achievements.scoreHunterScore || 65000;
+    const target = GAMEPLAY.achievements.scoreHunterScore || 100000;
     if ((saveData.bestScore || 0) >= target) {
       saveData.achievements.scoreHunter = true;
       newlyUnlocked.push('scoreHunter');
@@ -60,7 +60,7 @@ export function getAchievementProgress(saveData, achievementId) {
   const isUnlocked = Boolean(saveData?.achievements && saveData.achievements[achievementId]);
 
   if (achievementId === 'scoreHunter') {
-    const target = GAMEPLAY.achievements.scoreHunterScore || 65000;
+    const target = GAMEPLAY.achievements.scoreHunterScore || 100000;
     const current = Math.min(saveData?.bestScore || 0, target);
     return { unlocked: isUnlocked, current, target };
   } else if (achievementId === 'memeCurator') {

@@ -1,71 +1,85 @@
 // src/ui/TutorialPopup.js
-// Replayble 3-step tutorial popup that can be opened anywhere, including during gameplay.
+// Per-mode tutorial popup (Story or Time Kill). Opened automatically the first time a mode is
+// played, and from that mode's pause menu ("How to play"). The game behind it is paused by the
+// owning scene while the popup is open.
 import { THEME } from '../config/theme.config.js';
+import { TUTORIALS_CONFIG, tutorialParams } from '../config/tutorials.config.js';
 import { Popup } from './Popup.js';
 import { Button } from './Button.js';
 import { InkText } from './InkText.js';
+import { TutorialIllustration } from './TutorialIllustrations.js';
 import { AudioManager } from '../systems/AudioManager.js';
 import { SaveManager } from '../systems/SaveManager.js';
-import { TutorialIllustration } from './TutorialIllustrations.js';
+import { markTutorialSeen } from '../core/tutorials.js';
 import { t } from '../i18n/index.js';
 
 export class TutorialPopup {
+  /**
+   * @param {Phaser.Scene} scene
+   * @param {{ mode?: 'story'|'timeKill', onClose?: Function }} options
+   */
   constructor(scene, options = {}) {
     this.scene = scene;
     this.options = options;
+    this.mode = TUTORIALS_CONFIG[options.mode] ? options.mode : 'story';
+    this.cfg = TUTORIALS_CONFIG[this.mode];
+    this.steps = this.cfg.steps;
     this.step = 0;
+    this.params = tutorialParams();
 
     const pw = Math.min(scene.scale.width * 0.9, 480);
-    const ph = Math.min(scene.scale.height * 0.85, 460);
+    const ph = Math.min(scene.scale.height * 0.9, 460);
     this.pw = pw;
     this.ph = ph;
 
     this.popup = new Popup(scene, pw, ph, {
-      title: t('tutorial.title') || 'Tutorial',
+      title: t(this.cfg.titleKey),
       onClose: () => {
+        // Any way out (Got it, Skip, X) counts as seen
         this.stopIllustration();
+        SaveManager.update((s) => markTutorialSeen(s, this.mode));
         if (options.onClose) options.onClose();
       }
     });
 
     const d = this.popup.dialog;
 
-    // Step dots indicator
-    this.dotsContainer = scene.add.container(0, -ph * 0.36);
-    this.dots = [];
-    for (let i = 0; i < 3; i++) {
+    // Fixed rows: dots under the popup title, buttons at the bottom.
+    // Step title + description are measured and stacked above the buttons; the art fills the rest.
+    this.dotsY = -ph / 2 + 70;
+    this.btnY = ph / 2 - 34;
+
+    this.dotsContainer = scene.add.container(0, this.dotsY);
+    this.dots = this.steps.map((_, i) => {
       const dot = scene.add.graphics();
-      dot.setPosition((i - 1) * 28, 0);
-      this.dots.push(dot);
+      dot.setPosition((i - (this.steps.length - 1) / 2) * 26, 0);
       this.dotsContainer.add(dot);
-    }
+      return dot;
+    });
     d.add(this.dotsContainer);
 
-    // Visual illustration container
-    this.illusContainer = scene.add.container(0, -ph * 0.12);
+    this.illusContainer = scene.add.container(0, 0);
     d.add(this.illusContainer);
 
-    // Title
-    this.titleText = new InkText(scene, 0, ph * 0.12, '', {
+    this.titleText = new InkText(scene, 0, 0, '', {
       fontSize: '20px',
       color: THEME.colors.arcadeYellowHex,
       isTitle: true
     });
     this.titleText.setWordWrapWidth(pw - 50);
 
-    // Description
-    this.descText = scene.add.text(0, ph * 0.23, '', {
+    this.descText = scene.add.text(0, 0, '', {
       fontFamily: THEME.fonts.body,
-      fontSize: '13px',
+      fontSize: '14px',
       color: '#FFFFFF',
       align: 'center',
-      wordWrap: { width: pw - 60 },
-      lineSpacing: 4
+      wordWrap: { width: pw - 48 },
+      lineSpacing: 3
     });
-    this.descText.setOrigin(0.5);
+    this.descText.setOrigin(0.5, 0);
 
-    // Buttons
-    this.skipBtn = new Button(scene, -pw * 0.25, ph * 0.37, 120, 44, {
+    const btnW = Math.min(130, (pw - 60) / 2);
+    this.skipBtn = new Button(scene, -pw * 0.25, this.btnY, btnW, 44, {
       text: t('tutorial.skip'),
       bgColor: THEME.colors.playfieldTray,
       textColor: '#DDDDDD',
@@ -74,7 +88,7 @@ export class TutorialPopup {
       onClick: () => this.close()
     });
 
-    this.nextBtn = new Button(scene, pw * 0.25, ph * 0.37, 120, 44, {
+    this.nextBtn = new Button(scene, pw * 0.25, this.btnY, btnW, 44, {
       text: t('common.next'),
       bgColor: THEME.colors.slimeGreen,
       textColor: '#FFFFFF',
@@ -90,10 +104,10 @@ export class TutorialPopup {
 
   renderStep() {
     const { scene, pw, ph } = this;
+    const last = this.steps.length - 1;
+    const stepCfg = this.steps[this.step];
 
-    // Update dots
-    for (let i = 0; i < 3; i++) {
-      const dot = this.dots[i];
+    this.dots.forEach((dot, i) => {
       dot.clear();
       if (i === this.step) {
         dot.fillStyle(THEME.colors.arcadeYellow, 1);
@@ -104,22 +118,40 @@ export class TutorialPopup {
         dot.fillStyle(THEME.colors.mutedGrey, 0.6);
         dot.fillCircle(0, 0, 5);
       }
-    }
+    });
 
-    // Update illustration (animated, shared with the other tutorial entry point)
-    if (this.illustration) this.illustration.destroy();
+    // Text first, so its real height decides how much room the art gets
+    this.titleText.setText(t(`${stepCfg.key}.title`, this.params));
+    this.descText.setText(t(`${stepCfg.key}.desc`, this.params));
+    this.descText.setFontSize('14px');
+    const btnTop = this.btnY - 22;
+    const minArt = 80;
+    const fits = () => {
+      const textH = this.titleText.height + 6 + this.descText.height;
+      return btnTop - 10 - textH - (this.dotsY + 14) >= minArt;
+    };
+    if (!fits()) this.descText.setFontSize('13px');
+    if (!fits()) this.descText.setFontSize('12px');
+
+    const descTop = btnTop - 10 - this.descText.height;
+    this.descText.setPosition(0, descTop);
+    this.titleText.setPosition(0, descTop - 6 - this.titleText.height / 2);
+
+    const artTop = this.dotsY + 14;
+    const artBottom = descTop - 6 - this.titleText.height - 8;
+    const artH = Math.max(minArt, artBottom - artTop);
+    this.illusContainer.setPosition(0, artTop + artH / 2);
+
+    this.stopIllustration();
     this.illusContainer.removeAll(true);
-    this.illustration = new TutorialIllustration(scene, this.illusContainer, this.step, { pw: pw, ph: ph });
+    this.illustration = new TutorialIllustration(scene, this.illusContainer, stepCfg.art, { pw, ph, artH });
 
-    const keys = ['step1', 'step2', 'step3'];
-    this.titleText.setText(t(`tutorial.${keys[this.step]}.title`));
-    this.descText.setText(t(`tutorial.${keys[this.step]}.desc`));
-    this.nextBtn.setText(this.step < 2 ? t('common.next') : t('tutorial.gotIt'));
+    this.nextBtn.setText(this.step < last ? t('common.next') : t('tutorial.gotIt'));
   }
 
   advanceStep() {
     AudioManager.playSfx('sfx.click');
-    if (this.step < 2) {
+    if (this.step < this.steps.length - 1) {
       this.step++;
       this.renderStep();
     } else {
@@ -136,10 +168,6 @@ export class TutorialPopup {
 
   close() {
     AudioManager.playSfx('sfx.click');
-    this.stopIllustration();
-    SaveManager.update((s) => {
-      s.tutorialSeen = true;
-    });
     this.popup.close();
   }
 
@@ -156,4 +184,3 @@ export class TutorialPopup {
     }
   }
 }
-

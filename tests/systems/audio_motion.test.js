@@ -1,5 +1,8 @@
 // tests/systems/audio_motion.test.js
 // Tests for Phase 7 Gate: Audio pass, reduced motion, and tutorial flags.
+import { shouldShowTutorial, markTutorialSeen } from '../../src/core/tutorials.js';
+import { TUTORIALS_CONFIG, tutorialParams } from '../../src/config/tutorials.config.js';
+import { t, setLanguage } from '../../src/i18n/index.js';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AUDIO_CONFIG } from '../../src/config/audio.config.js';
 import { AudioManager } from '../../src/systems/AudioManager.js';
@@ -83,18 +86,49 @@ describe('Phase 7 Audio, Motion & Tutorial Gate', () => {
     });
   });
 
-  describe('Tutorial Persistence Flow', () => {
-    it('runs on clean launch (tutorialSeen = false) and saves when completed', () => {
+  describe('Tutorial Persistence Flow (per mode, no launch tutorial)', () => {
+    it('a fresh save shows each mode tutorial once, tracked separately, and keeps it across reloads', () => {
       SaveManager.reset();
-      expect(SaveManager.data.tutorialSeen).toBe(false);
+      const save = SaveManager.data;
+      expect(shouldShowTutorial(save, 'story')).toBe(true);
+      expect(shouldShowTutorial(save, 'timeKill')).toBe(true);
 
+      SaveManager.update((s) => markTutorialSeen(s, 'timeKill'));
+      expect(shouldShowTutorial(SaveManager.data, 'timeKill')).toBe(false);
+      expect(shouldShowTutorial(SaveManager.data, 'story')).toBe(true);
+
+      SaveManager.update((s) => markTutorialSeen(s, 'story'));
+      SaveManager.load();
+      expect(shouldShowTutorial(SaveManager.data, 'story')).toBe(false);
+      expect(shouldShowTutorial(SaveManager.data, 'timeKill')).toBe(false);
+    });
+
+    it('old saves that saw the original tutorial count as having seen the Story tutorial', () => {
+      SaveManager.reset();
       SaveManager.update((s) => {
         s.tutorialSeen = true;
+        delete s.timeKillTutorialSeen;
       });
+      expect(shouldShowTutorial(SaveManager.data, 'story')).toBe(false);
+      expect(shouldShowTutorial(SaveManager.data, 'timeKill')).toBe(true);
+    });
 
-      expect(SaveManager.data.tutorialSeen).toBe(true);
-      SaveManager.load();
-      expect(SaveManager.data.tutorialSeen).toBe(true);
+    it('every tutorial step has text in both languages and uses only real rule values', () => {
+      for (const mode of Object.keys(TUTORIALS_CONFIG)) {
+        expect(TUTORIALS_CONFIG[mode].steps.length).toBeGreaterThanOrEqual(3);
+        for (const step of TUTORIALS_CONFIG[mode].steps) {
+          for (const lang of ['en', 'id']) {
+            setLanguage(lang);
+            const title = t(`${step.key}.title`, tutorialParams());
+            const desc = t(`${step.key}.desc`, tutorialParams());
+            expect(title).not.toBe(`${step.key}.title`);
+            expect(desc).not.toMatch(/\{\w+\}/);
+          }
+        }
+      }
+      setLanguage('en');
+      expect(t('tutorial.timeKill.step2.desc', tutorialParams())).toContain('2 minutes');
+      expect(t('tutorial.timeKill.step2.desc', tutorialParams())).toContain('10 s');
     });
   });
 });

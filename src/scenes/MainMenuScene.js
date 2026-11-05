@@ -34,12 +34,6 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   create() {
-    // Check first-launch tutorial per UI_SPEC section 5
-    if (!SaveManager.data.tutorialSeen) {
-      this.scene.start('Tutorial');
-      return;
-    }
-
     // Play menu BGM (allowed to keep playing when the tab is in the background)
     AudioManager.playBgm('bgm.menu');
     AudioManager.setBackgroundPlay(true);
@@ -94,11 +88,7 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     // Mode Buttons
-    const save = SaveManager.data;
-    const clearedCount = save.stageCleared || 0;
-    const achCount = ACHIEVEMENTS_CONFIG.list.filter((ach) => Boolean(save?.achievements && save.achievements[ach.id])).length;
-    const memeCount = (Object.values(save.bossDefeated || {}).filter(Boolean).length) +
-      (Object.values(save.candyDestroyed || {}).filter((v) => v >= 100).length);
+    const { clearedCount, achCount, memeCount } = this.getCardCounts();
 
     // 1. Story Mode (Green)
     this.storyBtn = this.createModeCard({
@@ -168,9 +158,14 @@ export class MainMenuScene extends Phaser.Scene {
       this.openSettingsPopup();
     });
 
+    // Any progress saved while the menu is open (e.g. Support Creator from the donate button,
+    // the listen easter egg) updates the card counters right away.
+    this.unsubSave = EventBus.on('save:changed', () => this.refreshCardCounts());
+
     this.applyLayout(LayoutManager.getLayout());
 
     this.events.once('shutdown', () => {
+      if (this.unsubSave) this.unsubSave();
       if (this.unsubLayout) this.unsubLayout();
       if (this.unsubSettings) this.unsubSettings();
       AudioManager.setBackgroundPlay(false);
@@ -188,9 +183,22 @@ export class MainMenuScene extends Phaser.Scene {
     const ach = ACHIEVEMENTS_CONFIG.list.find((a) => a.id === 'fullyBrainRot');
     AudioManager.playSfx('sfx.win');
     showAchievementToast(this, { icon: ach.icon, titleKey: ach.titleKey });
-    const save = SaveManager.data;
-    const achCount = ACHIEVEMENTS_CONFIG.list.filter((a) => Boolean(save.achievements && save.achievements[a.id])).length;
-    if (this.achBtn && this.achBtn.subText) this.achBtn.subText.setParams({ unlocked: achCount });
+    this.refreshCardCounts();
+  }
+
+  getCardCounts(save = SaveManager.data) {
+    const clearedCount = save.stageCleared || 0;
+    const achCount = ACHIEVEMENTS_CONFIG.list.filter((ach) => Boolean(save?.achievements && save.achievements[ach.id])).length;
+    const memeCount = (Object.values(save.bossDefeated || {}).filter(Boolean).length) +
+      (Object.values(save.candyDestroyed || {}).filter((v) => v >= 100).length);
+    return { clearedCount, achCount, memeCount };
+  }
+
+  refreshCardCounts() {
+    const { clearedCount, achCount, memeCount } = this.getCardCounts();
+    if (this.storyBtn?.subText) this.storyBtn.subText.setParams({ cleared: clearedCount });
+    if (this.achBtn?.subText) this.achBtn.subText.setParams({ unlocked: achCount });
+    if (this.journalSub) this.journalSub.setParams({ discovered: memeCount });
   }
 
   createModeCard({ titleKey, subKey, subParams = {}, color, icon, onClick }) {
@@ -420,10 +428,6 @@ export class MainMenuScene extends Phaser.Scene {
     this.currentPopup = new SettingsPopup(this, {
       onClose: () => {
         this.currentPopup = null;
-      },
-      onHowToPlay: () => {
-        this.currentPopup = null;
-        this.scene.start('Tutorial', { fromSettings: true });
       }
     });
   }

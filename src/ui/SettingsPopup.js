@@ -7,7 +7,6 @@ import { Toggle } from './Toggle.js';
 import { Button } from './Button.js';
 import { InkText } from './InkText.js';
 import { LocalizedText } from './LocalizedText.js';
-import { TutorialPopup } from './TutorialPopup.js';
 import { AudioManager } from '../systems/AudioManager.js';
 import { SaveManager } from '../systems/SaveManager.js';
 import { EventBus } from '../systems/EventBus.js';
@@ -72,25 +71,8 @@ export class SettingsPopup {
     });
     d.add([this.langLabel, this.langToggle]);
 
-    // "How to play" link below language toggle
-    this.howToPlayLink = new LocalizedText(scene, 0, ph * 0.15, 'settings.howToPlay', {}, {
-      fontSize: '14px',
-      color: THEME.colors.electricCyanHex
-    });
-    this.howToPlayLink.setInteractive({ useHandCursor: true });
-    this.howToPlayLink.on('pointerup', () => {
-      AudioManager.playSfx('sfx.click');
-      this.popup.destroy();
-      if (this.options.onHowToPlay) {
-        this.options.onHowToPlay();
-      } else {
-        new TutorialPopup(this.scene);
-      }
-    });
-    d.add(this.howToPlayLink);
-
     // "Reset Progress" button with confirmation
-    this.resetBtn = new Button(scene, 0, ph * 0.25, 160, 32, {
+    this.resetBtn = new Button(scene, 0, ph * 0.18, 160, 32, {
       text: t('settings.resetProgress'),
       bgColor: THEME.colors.playfieldTray,
       outlineColor: THEME.colors.punchMagenta,

@@ -13,7 +13,6 @@ import { TimeKillScene } from './scenes/TimeKillScene.js';
 import { ResultsScene } from './scenes/ResultsScene.js';
 import { StageClearScene } from './scenes/StageClearScene.js';
 import { GameOverScene } from './scenes/GameOverScene.js';
-import { TutorialScene } from './scenes/TutorialScene.js';
 import { MemeBookScene } from './scenes/MemeBookScene.js';
 import { AchievementsScene } from './scenes/AchievementsScene.js';
 import { AssetDebugScene } from './scenes/AssetDebugScene.js';
@@ -29,7 +28,6 @@ const scenes = [
   ResultsScene,
   StageClearScene,
   GameOverScene,
-  TutorialScene,
   MemeBookScene,
   AchievementsScene,
   AssetDebugScene

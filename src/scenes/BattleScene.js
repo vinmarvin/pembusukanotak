@@ -14,6 +14,7 @@ import { Slider } from '../ui/Slider.js';
 import { Toggle } from '../ui/Toggle.js';
 import { SettingsPopup } from '../ui/SettingsPopup.js';
 import { TutorialPopup } from '../ui/TutorialPopup.js';
+import { shouldShowTutorial } from '../core/tutorials.js';
 import { BoardView } from '../ui/BoardView.js';
 import { SpriteFit } from '../ui/SpriteFit.js';
 import { BossEffectOverlay } from '../ui/BossEffectOverlay.js';
@@ -46,6 +47,8 @@ export class BattleScene extends Phaser.Scene {
     // 1. Initialize Fight Engine
     const isDebug = new URLSearchParams(window.location.search).get('debug') === '1';
     this.fight = new FightEngine(this.stage, { rng, isDebug });
+    // Scene instance is reused between visits: clear a popup left over from Pause > Menu.
+    this.currentPopup = null;
     this.bossCasting = false;
     this.castInProgress = false;
     this.moveInFlight = false;
@@ -186,6 +189,11 @@ export class BattleScene extends Phaser.Scene {
     });
 
     this.applyLayout(LayoutManager.getLayout());
+
+    // First time this mode is played: show its tutorial. The game waits behind the popup.
+    if (shouldShowTutorial(SaveManager.data, 'story')) {
+      this.openTutorialPopup();
+    }
     AudioManager.playBgm('bgm.story');
 
     this.events.once('shutdown', () => {
@@ -643,6 +651,7 @@ export class BattleScene extends Phaser.Scene {
       fontSize: '16px',
       onClick: () => {
         popup.destroy();
+        this.currentPopup = null;
         this.scene.start('MainMenu');
       }
     });
@@ -659,38 +668,40 @@ export class BattleScene extends Phaser.Scene {
       this.debugSceneBtn.setPosition(width - 230, topBar.height / 2);
     }
 
-    // Fighters Row
-    const fZone = battle.fighters;
-    this.fightersContainer.setPosition(fZone.x + fZone.width / 2, fZone.y + fZone.height / 2);
+    // Fighter cards and VS badge: absolute rectangles from LayoutManager (stacked row on
+    // laptops/tablets, side columns on short landscape screens).
+    this.fightersContainer.setPosition(0, 0);
+    const placeCard = (r, panel, name, portrait, gauge, isEnemy) => {
+      const cx = r.x + r.width / 2;
+      const cy = r.y + r.height / 2;
+      const cardW = r.width;
+      const cardH = r.height;
+      panel.resize(cardW, cardH);
+      panel.setPosition(cx, cy);
+      name.setPosition(cx, cy - cardH * 0.32);
+      const box = {
+        x: cx + (isEnemy ? 1 : -1) * cardW * 0.28,
+        y: cy + 6,
+        w: cardW * 0.35,
+        h: cardH * 0.6
+      };
+      portrait.setPosition(box.x, box.y);
+      SpriteFit.fitContain(portrait, box.w, box.h);
+      gauge.setPosition(cx + (isEnemy ? -1 : 1) * cardW * 0.15, cy + 6);
+      gauge.resize(cardW * 0.5, Math.max(16, Math.min(cardH * 0.25, 26)));
+      return box;
+    };
+    placeCard(battle.playerCard, this.playerPanel, this.playerName, this.playerPortrait, this.playerHpGauge, false);
+    this.enemyPortraitBox = placeCard(battle.enemyCard, this.enemyPanel, this.enemyName, this.enemyPortrait, this.enemyHpGauge, true);
 
-    const cardW = Math.min(fZone.width * 0.38, 220 * uiScale);
-    const cardH = Math.min(fZone.height * 0.9, 90 * uiScale);
-
-    this.playerPanel.resize(cardW, cardH);
-    this.playerPanel.setPosition(-fZone.width * 0.28, 0);
-    this.playerName.setPosition(-fZone.width * 0.28, -cardH * 0.32);
-    this.playerPortrait.setPosition(-fZone.width * 0.28 - cardW * 0.28, 6);
-    SpriteFit.fitContain(this.playerPortrait, cardW * 0.35, cardH * 0.6);
-    this.playerHpGauge.setPosition(-fZone.width * 0.28 + cardW * 0.15, 6);
-    this.playerHpGauge.resize(cardW * 0.5, Math.max(16, cardH * 0.25));
-
-    this.vsBadge.setPosition(0, 0);
-    this.vsBg.resize(Math.max(90, 110 * uiScale), Math.max(54, 68 * uiScale));
-
-    this.enemyPanel.resize(cardW, cardH);
-    this.enemyPanel.setPosition(fZone.width * 0.28, 0);
-    this.enemyName.setPosition(fZone.width * 0.28, -cardH * 0.32);
-    this.enemyPortraitBox = { x: fZone.width * 0.28 + cardW * 0.28, y: 6, w: cardW * 0.35, h: cardH * 0.6 };
-    this.enemyPortrait.setPosition(this.enemyPortraitBox.x, this.enemyPortraitBox.y);
-    SpriteFit.fitContain(this.enemyPortrait, this.enemyPortraitBox.w, this.enemyPortraitBox.h);
-    this.enemyHpGauge.setPosition(fZone.width * 0.28 - cardW * 0.15, 6);
-    this.enemyHpGauge.resize(cardW * 0.5, Math.max(16, cardH * 0.25));
+    this.vsBadge.setPosition(battle.vs.x + battle.vs.width / 2, battle.vs.y + battle.vs.height / 2);
+    this.vsBg.resize(battle.vs.width, battle.vs.height);
 
     // Countdown Row
     const cZone = battle.countdown;
     this.countdownRow.setPosition(cZone.x + cZone.width / 2, cZone.y + cZone.height / 2);
     this.countdownGauge.resize(
-      Math.min(cZone.width * 0.7, 360 * uiScale),
+      Math.min(cZone.width * (battle.mode === 'compact' ? 0.95 : 0.7), 360 * uiScale),
       Math.max(16, cZone.height * 0.7)
     );
 
@@ -703,8 +714,13 @@ export class BattleScene extends Phaser.Scene {
     }
     this.inputManager.setBoardMetrics(metrics);
 
-    // Update overlay layout
-    this.bossOverlay.updateLayout(width, height, battle.board);
+    // Freeze overlay covers exactly the board
+    this.bossOverlay.updateLayout(width, height, {
+      x: metrics.startX,
+      y: metrics.startY,
+      width: metrics.boardWidth,
+      height: metrics.boardHeight
+    });
 
     if (this.currentPopup) {
       this.currentPopup.reposition(width, height);
@@ -718,10 +734,6 @@ export class BattleScene extends Phaser.Scene {
       onClose: () => {
         this.currentPopup = null;
         this.checkRestoreInput();
-      },
-      onHowToPlay: () => {
-        this.currentPopup = null;
-        this.openTutorialPopup();
       }
     });
   }
@@ -730,6 +742,7 @@ export class BattleScene extends Phaser.Scene {
     if (this.currentPopup) return;
     this.inputManager.setEnabled(false);
     this.currentPopup = new TutorialPopup(this, {
+      mode: 'story',
       onClose: () => {
         this.currentPopup = null;
         if (onCloseCallback) {
