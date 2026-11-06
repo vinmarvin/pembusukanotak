@@ -97,6 +97,10 @@ export class TopBar extends Phaser.GameObjects.Container {
     scene.add.existing(this);
   }
 
+  setReserveRight(px) {
+    this.reserveRight = Math.max(0, px || 0);
+  }
+
   updateLayout(width, rawHeight) {
     const height = Math.max(rawHeight || 60, SCREEN_CONFIG.topBarMinHeight);
     this.bgGraphics.clear();
@@ -134,10 +138,14 @@ export class TopBar extends Phaser.GameObjects.Container {
     }
 
     this.rightCluster.setPosition(rightOffset, height / 2);
+    // Absolute x of the left edge of the button cluster; scenes may place extra buttons left of it
+    // (they reserve that width with setReserveRight so the title shrinks out of their way).
+    this.buttonsLeftX = rightOffset + leftmostEdge;
+    this.barHeight = height;
 
     // Shrink the title block only if it still does not fit next to the buttons
     this.leftCluster.setScale(1);
-    const available = rightOffset + leftmostEdge - 8 - 18;
+    const available = rightOffset + leftmostEdge - 8 - 18 - (this.reserveRight || 0);
     const needed = Math.max(this.titleText.width, this.subText.width);
     if (needed > available) this.leftCluster.setScale(Math.max(0.7, available / needed));
   }

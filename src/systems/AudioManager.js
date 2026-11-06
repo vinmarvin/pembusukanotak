@@ -80,8 +80,8 @@ class AudioManagerImpl {
     this._unlocked = false;
     this._lastHitTime = 0;
     this._synthCtx = null;
-    this._backgroundAllowed = false;
     this._exclusive = false;
+    this._memeClip = null;
   }
 
   init(scene) {
@@ -92,16 +92,11 @@ class AudioManagerImpl {
     this._sfxVol = settings.sfxVolume ?? AUDIO_CONFIG.sfxVolume;
     this._muted = settings.muted ?? false;
 
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
-          // The main menu may keep its music playing in the background; gameplay scenes always pause.
-          if (!this._backgroundAllowed) this.pauseAll();
-        } else {
-          this.resumeAll();
-        }
-      });
-    }
+    // Owner: audio keeps playing when the tab is hidden or the window loses focus, on every screen.
+    // Phaser's default (pauseOnBlur) suspends the whole audio context on blur, so turn it off.
+    // Gameplay itself still pauses while hidden because Phaser stops its game loop.
+    const sm = this._getSoundManager();
+    if (sm && 'pauseOnBlur' in sm) sm.pauseOnBlur = false;
 
     if (typeof window !== 'undefined') {
       window.addEventListener('pointerdown', () => this.unlock(), { once: true });
@@ -171,6 +166,7 @@ class AudioManagerImpl {
 
   toggleMute() {
     this._muted = !this._muted;
+    if (this._muted) this.stopMemeClip();
     SaveManager.update((s) => {
       if (!s.settings) s.settings = {};
       s.settings.muted = this._muted;
@@ -232,21 +228,22 @@ class AudioManagerImpl {
     }
   }
 
-  playBossSfx(stageNum = 1) {
+  // Boss sfx key for a stage; stage 5 falls back to a random b1-b4 clip when its own file is missing.
+  resolveBossSfxKey(stageNum = 1) {
     const key = `sfx.boss.b${stageNum}`;
-    const soundManager = this._getSoundManager();
-    let targetKey = key;
-
-    if (stageNum === 5 && soundManager && !this.hasAudio(key)) {
+    if (stageNum === 5 && this._getSoundManager() && !this.hasAudio(key)) {
       const fallbacks = ['sfx.boss.b1', 'sfx.boss.b2', 'sfx.boss.b3', 'sfx.boss.b4'];
       const available = fallbacks.filter((k) => this.hasAudio(k));
       if (available.length > 0) {
-        targetKey = available[Math.floor(Math.random() * available.length)];
+        return available[Math.floor(Math.random() * available.length)];
       }
     }
+    return key;
+  }
 
+  playBossSfx(stageNum = 1) {
     this.duckMusic();
-    this.playSfx(targetKey);
+    this.playSfx(this.resolveBossSfxKey(stageNum));
   }
 
   duckMusic() {
@@ -334,11 +331,45 @@ class AudioManagerImpl {
     }
   }
 
-  // Main menu only: keep music playing when the tab is hidden or the window loses focus.
-  setBackgroundPlay(allowed) {
-    this._backgroundAllowed = Boolean(allowed);
-    const sm = this._getSoundManager();
-    if (sm && 'pauseOnBlur' in sm) sm.pauseOnBlur = !this._backgroundAllowed;
+  // Meme Book clip: only one plays at a time. Taps while a clip is still playing are ignored,
+  // so spamming the button never stacks copies of the same sound.
+  playMemeClip(sfxKey, { duck = false } = {}) {
+    if (this._muted || this._exclusive) return false;
+    if (this.isMemeClipPlaying()) return false;
+    const soundManager = this._getSoundManager();
+    if (!soundManager || !this.hasAudio(sfxKey)) {
+      this.playSynthBeep(sfxKey);
+      return true;
+    }
+    try {
+      const gain = this.getGain(this._sfxVol) * (AUDIO_CONFIG.trims[sfxKey] || 1);
+      const clip = soundManager.add(sfxKey, { volume: gain });
+      clip.once('complete', () => {
+        if (this._memeClip === clip) this._memeClip = null;
+        clip.destroy();
+      });
+      this._memeClip = clip;
+      if (duck) this.duckMusic();
+      clip.play();
+      return true;
+    } catch (e) {
+      this._memeClip = null;
+      return false;
+    }
+  }
+
+  isMemeClipPlaying() {
+    return Boolean(this._memeClip && this._memeClip.isPlaying);
+  }
+
+  stopMemeClip() {
+    const clip = this._memeClip;
+    this._memeClip = null;
+    if (!clip) return;
+    try {
+      clip.stop();
+      clip.destroy();
+    } catch (e) {}
   }
 
   // True when the given track is playing and can actually be heard.

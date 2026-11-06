@@ -25,7 +25,7 @@ Read in Phase 0, 4, 5, 6, 7, and whenever you touch layout, HUD, scenes, text, o
 ## 3. Screens (visual details in DESIGN_REFERENCE section 6)
 - **Top bar (all screens):** logo, title, subtitle on the left; on the right the sound (mute) button and the settings button. Battle and Time Kill add "Back to main menu" on the right side too.
 - **MainMenu:** Story Mode, Time Kill, Achievement buttons; Journal of Meme card; Credits button. Stacked and centered in portrait.
-- **StageSelect:** brain map with 5 nodes (areas) joined by a dashed path; right panel with the selected stage, boss card, player stats for that stage, Start Battle; Back to Menu. Locked nodes show a lock and "Clear stage n-1 first".
+- **StageSelect:** brain map with 5 nodes (areas) joined by a dashed path; right panel with the selected stage, boss card, player stats for that stage, Start Battle; Back to Menu. Locked nodes show a lock and "Clear stage n-1 first". The map background is a code-drawn brain (GAME_SPEC decision 34). Yellow Hard Mode and red Boss Mode buttons sit left of the Menu button in the top bar (width >= 900 px) or next to Back in the bottom row; both show a lock until Story Mode is finished (GAME_SPEC decisions 35, 36). Hard mode battles show the green Heal and orange ATK x2 power-up tiles with a charge fill and a status caption.
 - **StoryText:** short text popup before Stage 1 (intro), when entering each area, and after Stage 5 (ending). Skippable.
 - **Battle:** fighter panel (player card, VS badge with "Stage n" and "Enemy k/6", enemy card with MINION or BOSS tag), attack countdown row, board.
 - **TimeKill:** score and best score, Pause, Back to main menu, timer bar and time, active effect chips, board. (The hint line was removed at the owner's request.)

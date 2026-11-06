@@ -122,6 +122,7 @@ export class MemeBookScene extends Phaser.Scene {
       if (this.unsubLayout) this.unsubLayout();
       if (this.unsubLang) this.unsubLang();
       if (this.unsubSettings) this.unsubSettings();
+      AudioManager.stopMemeClip();
       if (this.currentPopup) {
         this.currentPopup.destroy();
         this.currentPopup = null;
@@ -132,13 +133,19 @@ export class MemeBookScene extends Phaser.Scene {
   setupSwipeInput() {
     let startX = 0;
     let startY = 0;
+    // A swipe only counts if it started while no popup was open. These are scene-wide listeners,
+    // so the popup backdrop does not block them (dragging a Settings slider used to flip pages).
+    let armed = false;
 
     this.input.on('pointerdown', (pointer) => {
       startX = pointer.x;
       startY = pointer.y;
+      armed = !this.currentPopup;
     });
 
     this.input.on('pointerup', (pointer) => {
+      if (!armed || this.currentPopup) return;
+      armed = false;
       const dx = pointer.x - startX;
       const dy = pointer.y - startY;
       if (Math.abs(dx) > 60 && Math.abs(dy) < 50) {
@@ -152,11 +159,14 @@ export class MemeBookScene extends Phaser.Scene {
   }
 
   navigate(direction) {
+    if (this.currentPopup) return;
     const nextIndex = this.currentIndex + direction;
     if (nextIndex < 0 || nextIndex >= this.entries.length) {
       return;
     }
     this.currentIndex = nextIndex;
+    // A new page gets its own clip, so stop the previous page's clip.
+    AudioManager.stopMemeClip();
     AudioManager.playSfx('sfx.click');
     this.renderEntry();
   }
@@ -167,16 +177,14 @@ export class MemeBookScene extends Phaser.Scene {
     if (!isEntryUnlocked(save, entry.id)) {
       return; // Do not play SFX if entry/boss is not defeated/unlocked
     }
+    if (this.currentPopup) return;
+    // One clip at a time: taps while a clip is still playing are ignored (no overlapping copies).
     if (entry.kind === 'boss') {
       const stage = entry.stage || parseInt(entry.id.replace('b', ''), 10) || 1;
-      AudioManager.playBossSfx(stage);
+      AudioManager.playMemeClip(AudioManager.resolveBossSfxKey(stage), { duck: true });
     } else {
       const candySfxKey = `sfx.candy.${entry.id}`;
-      if (AudioManager.hasAudio(candySfxKey)) {
-        AudioManager.playSfx(candySfxKey);
-      } else {
-        AudioManager.playSfx('sfx.hit');
-      }
+      AudioManager.playMemeClip(AudioManager.hasAudio(candySfxKey) ? candySfxKey : 'sfx.hit');
     }
   }
 

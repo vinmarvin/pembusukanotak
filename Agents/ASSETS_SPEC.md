@@ -46,7 +46,8 @@ Normalize names first: lowercase, letters and digits only (`Tung_Tung-Sahur.png`
 - Settings: Music slider and SFX slider, 0 to 100, defaults 70 and 80, saved. Both apply **live** (no restart). Gain = (value / 100) squared. Dragging the SFX slider and releasing plays the hit sound as a preview. The top-bar sound button toggles `muted` for everything (music and sfx) and shows its state.
 - Music: one track at a time, looped. Menu scenes play `bgm.menu`; StageSelect and Battle play `bgm.story`; TimeKill and Results play `bgm.timekill`. Crossfade 500 ms when the track changes; do not restart a track that is already playing.
 - SFX: pooled. Boss attack plays that boss's `sfx.boss.bN`; stage 5 (`b5`) plays `sfx.boss.b5`, or if missing a random other boss sfx. Player or enemy damage plays `sfx.hit` (at most one per 80 ms). A minion attack plays its own sfx if it has one, else `sfx.hit`. Hit and attack sounds must be audible even when the music is loud: music is ducked by 30 percent for 300 ms on a boss attack (config).
-- Unlock on the first tap ("Tap to start" in Boot). Pause audio when the tab is hidden and resume when visible.
+- Unlock on the first tap ("Tap to start" in Boot). Owner change: audio keeps playing when the tab is hidden or the window loses focus, on every screen (gameplay itself still pauses while hidden).
+- Meme Book clips: one at a time. Taps while a clip is playing are ignored; turning the page, leaving the Meme Book, or muting stops the clip.
 - Per-key gain trims live in `src/config/audio.config.js` (default 1) so loud and quiet clips can be balanced without code changes.
 - Defaults in `audio.config.js`: `{ musicVolume: 70, sfxVolume: 80, curve: 2, crossfadeMs: 500, hitMinGapMs: 80, duckAmount: 0.3, duckMs: 300 }`.
 

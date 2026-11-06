@@ -77,6 +77,38 @@ describe('LayoutManager (UI_SPEC Section 8 Responsive QA Checklist)', () => {
     });
   });
 
+  // Hard mode: heal + boost tiles (with their two caption lines) fit next to the board.
+  resolutions.forEach(({ w, h, name }) => {
+    it(`places the hard mode power-up tiles without overlap: ${name}`, () => {
+      LayoutManager.updateDimensions(w, h);
+      const layout = LayoutManager.getLayout();
+      const b = layout.battle;
+      const plan = LayoutManager.planPowerUps(layout, 8, 7);
+      const cfg = SCREEN_CONFIG.powerUps;
+      expect(plan.size).toBeGreaterThanOrEqual(cfg.minSize);
+      const board = LayoutManager.computeBoardMetrics(8, 7, plan.boardZone);
+      // Board stays playable (at least 30 px cells)
+      expect(board.cellSize).toBeGreaterThanOrEqual(30);
+      const capW = Math.max(plan.size, cfg.captionW);
+      const tiles = plan.positions.map((p) => ({
+        x: p.x - capW / 2,
+        y: p.y - plan.size / 2,
+        width: capW,
+        height: plan.size + cfg.captionH
+      }));
+      const parts = [b.playerCard, b.enemyCard, b.vs, b.countdown, trayRect(board), ...tiles];
+      for (const r of tiles) {
+        expect(inside(r, w, h)).toBe(true);
+        expect(r.y).toBeGreaterThanOrEqual(layout.topBar.height);
+      }
+      for (let i = 0; i < parts.length; i++) {
+        for (let j = i + 1; j < parts.length; j++) {
+          expect(overlaps(parts[i], parts[j])).toBe(false);
+        }
+      }
+    });
+  });
+
   it('uses the compact side layout only on short landscape screens', () => {
     for (const [w, h, compact] of [[844, 390, true], [870, 393, true], [1024, 768, false], [1280, 800, false], [390, 844, false]]) {
       LayoutManager.updateDimensions(w, h);

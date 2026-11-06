@@ -26,6 +26,12 @@ export const THEME = {
     loreInkHex: '#2B1A3D',
     white: 0xFFFFFF,
     whiteHex: '#FFFFFF',
+    // Boss Rush button (owner mockup: red)
+    bossRed: 0xE5212B,
+    bossRedHex: '#E5212B',
+    // Hard mode power-up buttons (owner mockup: green heal, orange damage boost)
+    healGreen: 0x22B14C,
+    boostOrange: 0xFF7F27,
     mutedGrey: 0x7B6F8A,
     mutedGreyHex: '#7B6F8A'
   },

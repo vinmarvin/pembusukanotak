@@ -251,6 +251,50 @@ class LayoutManagerImpl {
     };
   }
 
+  // Hard mode power-up buttons (2 tiles). Returns the board zone to use (portrait gives up a row
+  // under the board) and the tile centres:
+  //   compact landscape: side by side in the left column under the VS badge
+  //   stacked landscape: stacked in the free space left of the board, from the board top
+  //   portrait:          side by side in a row under the board
+  planPowerUps(layout, cols, rows) {
+    const cfg = SCREEN_CONFIG.powerUps;
+    const { battle, contentArea } = layout;
+    const clampSize = (v) => Math.max(cfg.minSize, Math.min(cfg.maxSize, Math.floor(v)));
+
+    if (battle.mode === 'compact') {
+      const left = battle.fighters;
+      const top = battle.vs.y + battle.vs.height + cfg.gap;
+      const size = clampSize(Math.min((left.width - cfg.gap) / 2, left.y + left.height - top - cfg.captionH));
+      const cx = left.x + left.width / 2;
+      const y = top + size / 2;
+      const dx = (Math.max(size, cfg.captionW) + cfg.gap) / 2;
+      return { boardZone: battle.board, size, positions: [{ x: cx - dx, y }, { x: cx + dx, y }] };
+    }
+
+    const metrics = this.computeBoardMetrics(cols, rows, battle.board);
+    const pad = SCREEN_CONFIG.boardTrayPad;
+    const leftSpace = metrics.startX - pad - contentArea.x;
+    if (leftSpace >= cfg.minSize + cfg.gap * 2) {
+      const size = clampSize(leftSpace - cfg.gap * 2);
+      const x = contentArea.x + leftSpace / 2;
+      const y1 = metrics.startY + size / 2;
+      return {
+        boardZone: battle.board,
+        size,
+        positions: [{ x, y: y1 }, { x, y: y1 + size + cfg.captionH + cfg.gap }]
+      };
+    }
+
+    const size = cfg.portraitSize;
+    const rowH = size + cfg.captionH + cfg.gap;
+    const boardZone = rect(battle.board.x, battle.board.y, battle.board.width, battle.board.height - rowH);
+    const m = this.computeBoardMetrics(cols, rows, boardZone);
+    const y = m.startY + m.boardHeight + pad + cfg.gap + size / 2;
+    const cx = contentArea.x + contentArea.width / 2;
+    const dx = (Math.max(size, cfg.captionW) + cfg.gap) / 2;
+    return { boardZone, size, positions: [{ x: cx - dx, y }, { x: cx + dx, y }] };
+  }
+
   // Square cells centred in the zone. The tray padding is kept free on every side,
   // so the board tray never touches the zone edge (or the screen edge).
   computeBoardMetrics(cols, rows, zone) {

@@ -8,6 +8,8 @@ export function getDefaultSave() {
   return {
     version: 1,
     stageCleared: 0,
+    hardStageCleared: 0,
+    bossRushBest: 0,
     gameOversSinceStage1Start: 0,
     storyCompleted: false,
     candyDestroyed: { c67: 0, nugget: 0, skibidi: 0, lirili: 0, udin: 0, bluberini: 0 },

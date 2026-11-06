@@ -11,6 +11,8 @@ import { LocalizedText } from '../ui/LocalizedText.js';
 import { SettingsPopup } from '../ui/SettingsPopup.js';
 import { SpriteFit } from '../ui/SpriteFit.js';
 import { ScrollableText } from '../ui/ScrollableText.js';
+import { BrainMap } from '../ui/BrainMap.js';
+import { SCREEN_CONFIG } from '../config/screen.config.js';
 import { LayoutManager } from '../systems/LayoutManager.js';
 import { AssetResolver } from '../systems/AssetResolver.js';
 import { AudioManager } from '../systems/AudioManager.js';
@@ -24,13 +26,16 @@ export class StageSelectScene extends Phaser.Scene {
     super('StageSelect');
   }
 
+  init(data) {
+    // 'normal' or 'hard' (owner: Hard mode unlocks after Story Mode is finished)
+    this.mode = data?.mode === 'hard' && StoryProgression.areExtraModesUnlocked() ? 'hard' : 'normal';
+  }
+
   create() {
     // Stage select uses story BGM per ASSETS_SPEC 5
     AudioManager.playBgm('bgm.story');
 
-    const save = SaveManager.data;
-    const initialStage = Math.min(5, Math.max(1, (save.stageCleared || 0) + 1));
-    this.selectedStage = initialStage;
+    this.selectedStage = this.firstOpenStage();
 
     this.topBar = new TopBar(this, {
       showMenuBtn: true,
@@ -51,17 +56,41 @@ export class StageSelectScene extends Phaser.Scene {
       outlineColor: THEME.colors.ink,
       radius: THEME.depth.panelRadius
     });
-    this.brainDecoGraphics = this.add.graphics();
+    this.brainMap = new BrainMap(this);
     this.pathGraphics = this.add.graphics();
-    this.mapContainer.add([this.mapPanel, this.brainDecoGraphics, this.pathGraphics]);
+    this.hardTag = new InkText(this, 0, 0, t('stageselect.hardTag'), {
+      fontSize: '16px',
+      color: THEME.colors.punchMagentaHex,
+      isTitle: true,
+      originX: 0
+    });
+    this.mapContainer.add([this.mapPanel, this.brainMap, this.pathGraphics, this.hardTag]);
 
     // Create 5 Area Nodes
     this.nodeButtons = [];
-    for (let s = 1; s <= 5; s++) {
-      const node = this.createStageNode(s);
-      this.nodeButtons.push(node);
-      this.mapContainer.add(node);
-    }
+    this.buildNodes();
+
+    // Hard mode (yellow) and Boss Rush (red) buttons. Locked until Story Mode is finished.
+    const mb = SCREEN_CONFIG.modeButtons;
+    this.hardBtn = new Button(this, 0, 0, mb.width, mb.height, {
+      text: ' ',
+      bgColor: THEME.colors.arcadeYellow,
+      textColor: '#FFFFFF',
+      fontSize: '15px',
+      radius: 12,
+      onClick: () => this.toggleHardMode()
+    });
+    this.bossBtn = new Button(this, 0, 0, mb.width, mb.height, {
+      text: ' ',
+      bgColor: THEME.colors.bossRed,
+      textColor: '#FFFFFF',
+      fontSize: '15px',
+      radius: 12,
+      onClick: () => this.startBossRush()
+    });
+    this.hardBtn.setDepth(51);
+    this.bossBtn.setDepth(51);
+    this.refreshModeButtons();
 
     // Right Side Info Panel
     this.infoPanel = new Panel(this, 0, 0, 320, 500, {
@@ -143,6 +172,8 @@ export class StageSelectScene extends Phaser.Scene {
 
     this.unsubLang = EventBus.on('language:changed', () => {
       this.updateSelectedStageInfo();
+      this.refreshModeButtons();
+      this.hardTag.setText(t('stageselect.hardTag'));
       this.backBtn.setText(t('common.back'));
     });
 
@@ -169,9 +200,94 @@ export class StageSelectScene extends Phaser.Scene {
     });
   }
 
+  // ── Mode helpers ─────────────────────────────────────────────────────────
+
+  clearedCount() {
+    const save = SaveManager.data;
+    return (this.mode === 'hard' ? save.hardStageCleared : save.stageCleared) || 0;
+  }
+
+  isStageOpen(stage) {
+    return this.mode === 'hard'
+      ? StoryProgression.isHardStageUnlocked(stage)
+      : StoryProgression.isStageUnlocked(stage);
+  }
+
+  firstOpenStage() {
+    return Math.min(5, Math.max(1, this.clearedCount() + 1));
+  }
+
+  buildNodes() {
+    this.nodeButtons.forEach((node) => node.destroy());
+    this.nodeButtons = [];
+    for (let s = 1; s <= 5; s++) {
+      const node = this.createStageNode(s);
+      this.nodeButtons.push(node);
+      this.mapContainer.add(node);
+    }
+  }
+
+  refreshModeButtons() {
+    const unlocked = StoryProgression.areExtraModesUnlocked();
+    const lock = unlocked ? '' : '🔒 ';
+    const isHard = this.mode === 'hard';
+    this.hardBtn.setText(lock + t(isHard ? 'stageselect.normalMode' : 'stageselect.hardMode'));
+    this.hardBtn.options.bgColor = isHard ? THEME.colors.slimeGreen : THEME.colors.arcadeYellow;
+    this.hardBtn.draw();
+    this.bossBtn.setText(lock + t('stageselect.bossMode'));
+    this.hardBtn.setAlpha(unlocked ? 1 : 0.6);
+    this.bossBtn.setAlpha(unlocked ? 1 : 0.6);
+    this.hardTag.setVisible(isHard);
+  }
+
+  showLockedNotice() {
+    if (this.lockNotice) this.lockNotice.destroy();
+    const { width, height } = this.scale;
+    const txt = new InkText(this, width / 2, height / 2, t('stageselect.modesLocked'), {
+      fontSize: '18px',
+      color: THEME.colors.arcadeYellowHex,
+      isHud: true
+    });
+    txt.setWordWrapWidth(Math.min(420, width - 40));
+    txt.setDepth(120);
+    this.lockNotice = txt;
+    this.tweens.add({
+      targets: txt,
+      y: height / 2 - 40,
+      alpha: 0,
+      delay: 1200,
+      duration: 600,
+      onComplete: () => {
+        txt.destroy();
+        if (this.lockNotice === txt) this.lockNotice = null;
+      }
+    });
+  }
+
+  toggleHardMode() {
+    if (!StoryProgression.areExtraModesUnlocked()) {
+      this.showLockedNotice();
+      return;
+    }
+    this.mode = this.mode === 'hard' ? 'normal' : 'hard';
+    this.selectedStage = this.firstOpenStage();
+    this.buildNodes();
+    this.refreshModeButtons();
+    this.updateSelectedStageInfo();
+    this.applyLayout(LayoutManager.getLayout());
+  }
+
+  startBossRush() {
+    if (!StoryProgression.areExtraModesUnlocked()) {
+      this.showLockedNotice();
+      return;
+    }
+    this.scene.start('Battle', { mode: 'bossRush' });
+  }
+
   createStageNode(stage) {
-    const isUnlocked = StoryProgression.isStageUnlocked(stage);
-    const isCleared = (SaveManager.data.stageCleared || 0) >= stage;
+    const isUnlocked = this.isStageOpen(stage);
+    const isCleared = this.clearedCount() >= stage;
     const isBossFinal = stage === 5;
 
     // Bigger nodes to fill the map
@@ -231,8 +347,8 @@ export class StageSelectScene extends Phaser.Scene {
 
   // Shrink the node circles on short maps (phones sideways). The area names keep their font size
   // so they stay readable; they just move up with the smaller circle.
-  scaleNodes(mapH) {
-    const scale = Math.min(1, Math.max(0.6, mapH / 420));
+  scaleNodes() {
+    const scale = this.brainMap.nodeScale();
     this.nodeButtons.forEach((node) => {
       node.circleParts.forEach((part) => part.setScale(scale));
       node.nameText.setY((node.nodeSize / 2) * scale + 14);
@@ -252,9 +368,11 @@ export class StageSelectScene extends Phaser.Scene {
   updateSelectedStageInfo() {
     const s = this.selectedStage;
     const bossData = BOSSES_CONFIG.stages[s];
-    const isUnlocked = StoryProgression.isStageUnlocked(s);
+    const isUnlocked = this.isStageOpen(s);
+    const isHard = this.mode === 'hard';
 
-    this.stageTitle.setText(`STAGE ${s}`);
+    this.stageTitle.setText(isHard ? t('stageselect.hardStage', { n: s }) : `STAGE ${s}`);
+    this.stageTitle.setColor(isHard ? THEME.colors.punchMagentaHex : THEME.colors.arcadeYellowHex);
     this.areaTitle.setText(bossData.areaName);
     this.bossName.setText(bossData.name);
 
@@ -275,13 +393,17 @@ export class StageSelectScene extends Phaser.Scene {
       this.startBtn.setText(t('stageselect.startBattle'));
     } else {
       this.startBtn.setEnabled(false);
-      this.startBtn.setText(t('stageselect.lockedNotice', { n: s - 1 }));
+      this.startBtn.setText(t(isHard ? 'stageselect.lockedHard' : 'stageselect.lockedNotice', { n: s - 1 }));
     }
 
     this.updateNodeHighlights();
   }
 
   startSelectedBattle() {
+    if (this.mode === 'hard') {
+      this.scene.start('Battle', { stage: this.selectedStage, mode: 'hard' });
+      return;
+    }
     StoryProgression.onStartStage(this.selectedStage);
 
     // If starting stage, show short area intro first
@@ -295,6 +417,9 @@ export class StageSelectScene extends Phaser.Scene {
 
   applyLayout(layout) {
     const { width, height, isLandscape, topBar } = layout;
+    const mb = SCREEN_CONFIG.modeButtons;
+    const modesInTopBar = width >= mb.topBarMinWidth;
+    this.topBar.setReserveRight(modesInTopBar ? mb.width * 2 + mb.gap * 3 : 0);
     this.topBar.updateLayout(width, topBar.height);
 
     // Dedicated bottom bar height (56px) to keep Back button comfortably elevated
@@ -320,26 +445,13 @@ export class StageSelectScene extends Phaser.Scene {
       this.sidePanelContainer.setPosition(marginX + mapW + gap + sideW / 2, topY + sideH / 2);
       this.infoPanel.resize(sideW, sideH);
 
-      // Node positions spread across the brain map
-      const nodeCoords = [
-        { x: -mapW * 0.36, y: contentH * 0.28 },
-        { x: -mapW * 0.22, y: -contentH * 0.20 },
-        { x: -mapW * 0.02, y: -contentH * 0.28 },
-        { x: mapW * 0.24, y: -contentH * 0.12 },
-        { x: mapW * 0.20, y: contentH * 0.24 }
-      ];
-
-      this.drawBrainDecoration(mapW, contentH);
-      this.drawDashedPath(nodeCoords);
-      this.nodeButtons.forEach((node, idx) => {
-        node.setPosition(nodeCoords[idx].x, nodeCoords[idx].y);
-      });
-
-      this.scaleNodes(contentH);
+      this.placeBrainAndNodes(mapW, contentH);
       this.layoutSidePanel(sideW, sideH);
 
       // Back button positioned higher from screen bottom with ample clearance
+      this.backBtn.resize(150, 46);
       this.backBtn.setPosition(100, height - 38);
+      this.layoutModeButtons(modesInTopBar, 100 + 75 + mb.gap, height - 38);
     } else {
       // Portrait
       const mapW = width - 24;
@@ -353,25 +465,21 @@ export class StageSelectScene extends Phaser.Scene {
       this.sidePanelContainer.setPosition(width / 2, topY + mapH + 12 + sideH / 2);
       this.infoPanel.resize(sideW, sideH);
 
-      const nodeCoords = [
-        { x: -mapW * 0.36, y: mapH * 0.22 },
-        { x: -mapW * 0.20, y: -mapH * 0.22 },
-        { x: 0, y: mapH * 0.16 },
-        { x: mapW * 0.20, y: -mapH * 0.22 },
-        { x: mapW * 0.36, y: mapH * 0.22 }
-      ];
-
-      this.drawBrainDecoration(mapW, mapH);
-      this.drawDashedPath(nodeCoords);
-      this.nodeButtons.forEach((node, idx) => {
-        node.setPosition(nodeCoords[idx].x, nodeCoords[idx].y);
-      });
-
-      this.scaleNodes(mapH);
+      this.placeBrainAndNodes(mapW, mapH);
       this.layoutSidePanel(sideW, sideH);
 
-      // Back button centered and elevated in portrait
-      this.backBtn.setPosition(width / 2, height - 38);
+      if (modesInTopBar) {
+        // Back button centered and elevated in portrait
+        this.backBtn.resize(150, 46);
+        this.backBtn.setPosition(width / 2, height - 38);
+        this.layoutModeButtons(true);
+      } else {
+        // Back on the left, the two mode buttons on its right
+        const btnW = Math.min(mb.width, (width - 24 - mb.gap * 2) / 3);
+        this.backBtn.resize(btnW, 46);
+        this.backBtn.setPosition(12 + btnW / 2, height - 38);
+        this.layoutModeButtons(false, 12 + btnW + mb.gap, height - 38, btnW);
+      }
     }
 
     if (this.currentPopup) {
@@ -432,28 +540,33 @@ export class StageSelectScene extends Phaser.Scene {
     }
   }
 
-  drawBrainDecoration(mapW, mapH) {
-    this.brainDecoGraphics.clear();
-    // Subtle faint brain hemisphere contours and gyri grooves
-    this.brainDecoGraphics.lineStyle(2, THEME.colors.ink, 0.22);
+  // Brain fills the map panel; the nodes sit on their brain areas and keep a readable size.
+  placeBrainAndNodes(mapW, mapH) {
+    this.brainMap.setPosition(0, 0);
+    this.brainMap.fit(mapW, mapH);
+    this.brainMap.draw(this.clearedCount());
+    const coords = this.brainMap.nodePositions();
+    this.drawDashedPath(coords);
+    this.nodeButtons.forEach((node, idx) => node.setPosition(coords[idx].x, coords[idx].y));
+    this.scaleNodes();
+    this.hardTag.setPosition(-mapW / 2 + 18, -mapH / 2 + 18);
+  }
 
-    const rx = mapW * 0.44;
-    const ry = mapH * 0.42;
-
-    // Outer faint lobes
-    this.brainDecoGraphics.strokeEllipse(0, 0, rx * 2, ry * 2);
-
-    // Hemispheric fissure curve down the center
-    this.brainDecoGraphics.beginPath();
-    this.brainDecoGraphics.moveTo(0, -ry);
-    this.brainDecoGraphics.lineTo(0, ry);
-    this.brainDecoGraphics.strokePath();
-
-    // Subtle curved lateral sulci ripples
-    this.brainDecoGraphics.strokeCircle(-rx * 0.45, -ry * 0.15, rx * 0.35);
-    this.brainDecoGraphics.strokeCircle(rx * 0.45, -ry * 0.15, rx * 0.35);
-    this.brainDecoGraphics.strokeCircle(-rx * 0.35, ry * 0.35, rx * 0.3);
-    this.brainDecoGraphics.strokeCircle(rx * 0.35, ry * 0.35, rx * 0.3);
+  // Mode buttons: in the top bar left of its own buttons (wide screens), else in the bottom
+  // row starting at leftX.
+  layoutModeButtons(inTopBar, leftX = 0, rowY = 0, btnW = SCREEN_CONFIG.modeButtons.width) {
+    const mb = SCREEN_CONFIG.modeButtons;
+    this.hardBtn.resize(btnW, mb.height);
+    this.bossBtn.resize(btnW, mb.height);
+    if (inTopBar) {
+      const y = this.topBar.barHeight / 2;
+      const right = this.topBar.buttonsLeftX - mb.gap * 2;
+      this.bossBtn.setPosition(right - btnW / 2, y);
+      this.hardBtn.setPosition(right - btnW * 1.5 - mb.gap, y);
+    } else {
+      this.hardBtn.setPosition(leftX + btnW / 2, rowY);
+      this.bossBtn.setPosition(leftX + btnW * 1.5 + mb.gap, rowY);
+    }
   }
 
   drawDashedPath(coords) {

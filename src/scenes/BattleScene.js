@@ -18,6 +18,8 @@ import { shouldShowTutorial } from '../core/tutorials.js';
 import { BoardView } from '../ui/BoardView.js';
 import { SpriteFit } from '../ui/SpriteFit.js';
 import { BossEffectOverlay } from '../ui/BossEffectOverlay.js';
+import { PowerUpButton } from '../ui/PowerUpButton.js';
+import { StoryProgression } from '../core/progression/story.js';
 import { fireOrb, hitReact, damagePop, burst, worldPos } from '../ui/AttackFx.js';
 import { LayoutManager } from '../systems/LayoutManager.js';
 import { InputManager } from '../systems/InputManager.js';
@@ -38,15 +40,22 @@ export class BattleScene extends Phaser.Scene {
   }
 
   init(data) {
+    // 'normal' (Story), 'hard' (Story hard mode) or 'bossRush' (owner request)
+    this.mode = data?.mode || 'normal';
     this.stage = data?.stage || 1;
     this.cols = GAMEPLAY.board.cols || 8;
     this.rows = GAMEPLAY.board.rowsStory || 7;
   }
 
+  // Data to start this same battle again (retry / restart)
+  battleData() {
+    return { stage: this.stage, mode: this.mode };
+  }
+
   create() {
     // 1. Initialize Fight Engine
     const isDebug = new URLSearchParams(window.location.search).get('debug') === '1';
-    this.fight = new FightEngine(this.stage, { rng, isDebug });
+    this.fight = new FightEngine(this.stage, { rng, isDebug, mode: this.mode });
     // Scene instance is reused between visits: clear a popup left over from Pause > Menu.
     this.currentPopup = null;
     this.bossCasting = false;
@@ -104,12 +113,13 @@ export class BattleScene extends Phaser.Scene {
       color: THEME.colors.arcadeYellowHex,
       isTitle: true
     });
-    this.stageTag = new LocalizedText(this, 0, 4, 'battle.stageTag', { n: this.stage }, {
+    const stageKey = { normal: 'battle.stageTag', hard: 'battle.hardStageTag', bossRush: 'battle.bossRushTag' }[this.mode];
+    this.stageTag = new LocalizedText(this, 0, 4, stageKey, { n: this.stage }, {
       fontSize: '14px',
-      color: '#FFFFFF',
+      color: this.mode === 'normal' ? '#FFFFFF' : THEME.colors.punchMagentaHex,
       isHud: true
     });
-    this.enemyTag = new LocalizedText(this, 0, 22, 'battle.enemyTag', { k: 1, total: 6 }, {
+    this.enemyTag = new LocalizedText(this, 0, 22, this.enemyTagKey(), this.enemyTagParams(), {
       fontSize: '12px',
       color: THEME.colors.slimeGreenHex,
       isHud: true
@@ -154,6 +164,26 @@ export class BattleScene extends Phaser.Scene {
     });
     this.countdownRow.add(this.countdownGauge);
 
+    // Hard mode power-ups: green heal (charges per destroyed candy), orange damage boost (cooldown).
+    // The scene instance is reused between visits, so clear refs left from an earlier hard battle.
+    this.healBtn = null;
+    this.boostBtn = null;
+    this._powerTitlesSet = false;
+    this._wasBoosting = false;
+    if (this.fight.hasPowerUps) {
+      this.healBtn = new PowerUpButton(this, {
+        color: THEME.colors.healGreen,
+        icon: '✚',
+        onClick: () => this.useHeal()
+      });
+      this.boostBtn = new PowerUpButton(this, {
+        color: THEME.colors.boostOrange,
+        icon: '⚔',
+        onClick: () => this.useBoost()
+      });
+      this.refreshPowerUps();
+    }
+
     // Board View
     this.boardView = new BoardView(this, this.cols, this.rows);
 
@@ -188,17 +218,22 @@ export class BattleScene extends Phaser.Scene {
       this.openSettingsPopup();
     });
 
+    this.unsubLang = EventBus.on('language:changed', () => {
+      if (this.fight.hasPowerUps) this.refreshPowerUps(true);
+    });
+
     this.applyLayout(LayoutManager.getLayout());
 
     // First time this mode is played: show its tutorial. The game waits behind the popup.
     if (shouldShowTutorial(SaveManager.data, 'story')) {
       this.openTutorialPopup();
     }
-    AudioManager.playBgm('bgm.story');
+    AudioManager.playBgm(this.mode === 'bossRush' ? 'bgm.timekill' : 'bgm.story');
 
     this.events.once('shutdown', () => {
       if (this.unsubLayout) this.unsubLayout();
       if (this.unsubSettings) this.unsubSettings();
+      if (this.unsubLang) this.unsubLang();
       this.tweens.killAll();
       this.boardView.clearSprites();
     });
@@ -300,6 +335,13 @@ export class BattleScene extends Phaser.Scene {
 
   handleEnemyDefeated(defRes) {
     AudioManager.playSfx('sfx.win');
+    // Boss Rush: every defeated boss counts for the Meme Book
+    if (this.mode === 'bossRush' && defRes.defeatedEnemy?.isBoss) {
+      SaveManager.update((s) => {
+        recordBossDefeat(s, defRes.defeatedEnemy.id);
+        checkAchievements(s);
+      });
+    }
     if (defRes.stageComplete) {
       this.pendingBossEffects = [];
       SaveManager.update((s) => {
@@ -307,20 +349,92 @@ export class BattleScene extends Phaser.Scene {
         checkAchievements(s);
       });
       this.time.delayedCall(600, () => {
-        this.scene.start('StageClear', { stage: this.stage });
+        this.scene.start('StageClear', this.battleData());
       });
     } else {
       // Advance to next enemy and update visuals
       this.updateEnemyCardVisuals();
       this.playerHpGauge.setValue(this.fight.playerHp);
-      this.showFloatingText(this.getPlayerCardWorldPos().x, this.getPlayerCardWorldPos().y, 'HEALED!', THEME.colors.slimeGreenHex);
+      if (defRes.healed > 0) {
+        const pos = this.getPlayerCardWorldPos();
+        const label = this.mode === 'normal' ? t('battle.healed') : t('battle.healAmount', { hp: defRes.healed });
+        this.showFloatingText(pos.x, pos.y, label, THEME.colors.slimeGreenHex);
+      }
+    }
+  }
+
+  enemyTagKey() {
+    return this.mode === 'bossRush' ? 'battle.bossCount' : 'battle.enemyTag';
+  }
+
+  enemyTagParams() {
+    return { k: this.fight.enemyIndex + 1, total: this.fight.totalEnemies };
+  }
+
+  // ── Hard mode power-ups ─────────────────────────────────────────────────
+
+  canUsePowerUps() {
+    return !this.currentPopup && !this.fight.isFrozen && !this.fight.isGameOver && !this.fight.isStageComplete;
+  }
+
+  useHeal() {
+    if (!this.canUsePowerUps() || !this.fight.canHeal()) return;
+    const healed = this.fight.useHeal();
+    this.playerHpGauge.setValue(this.fight.playerHp);
+    const pos = worldPos(this.playerPortrait);
+    burst(this, pos.x, pos.y, THEME.colors.slimeGreen, 10, 40);
+    this.showFloatingText(pos.x, pos.y, t('battle.healAmount', { hp: healed }), THEME.colors.slimeGreenHex);
+    this.refreshPowerUps();
+  }
+
+  useBoost() {
+    if (!this.canUsePowerUps() || !this.fight.useBoost()) return;
+    const pos = worldPos(this.playerPortrait);
+    burst(this, pos.x, pos.y, THEME.colors.boostOrange, 10, 40);
+    this.showFloatingText(pos.x, pos.y, t('battle.boostOn', { mult: GAMEPLAY.modes.hard.damageBoost.multiplier }), THEME.colors.arcadeYellowHex);
+    this.refreshPowerUps();
+  }
+
+  refreshPowerUps(force = false) {
+    if (!this.healBtn) return;
+    const cfg = GAMEPLAY.modes.hard;
+    const usable = this.canUsePowerUps();
+    if (force || !this._powerTitlesSet) {
+      this.healBtn.setTitle(t('battle.heal'));
+      this.boostBtn.setTitle(t('battle.boost', { mult: cfg.damageBoost.multiplier }));
+      this._powerTitlesSet = true;
+    }
+
+    const charge = this.fight.healCharge;
+    const healReady = this.fight.canHeal();
+    this.healBtn.setState({
+      progress: charge / cfg.heal.candiesToCharge,
+      ready: healReady && usable,
+      caption: healReady ? t('battle.ready') : `${charge}/${cfg.heal.candiesToCharge}`
+    });
+
+    const boosting = this.fight.boostActive;
+    const boostReady = this.fight.canBoost();
+    let caption = t('battle.ready');
+    if (boosting) caption = `${Math.ceil(this.fight.boostTime)}s`;
+    else if (!boostReady) caption = `${Math.ceil(this.fight.boostCooldown)}s`;
+    this.boostBtn.setState({
+      progress: boosting ? 1 : 1 - this.fight.boostCooldown / cfg.damageBoost.cooldownSec,
+      ready: boostReady && usable,
+      active: boosting,
+      caption
+    });
+    if (boosting !== this._wasBoosting) {
+      this._wasBoosting = boosting;
+      if (boosting) this.playerPortrait.setTint(THEME.colors.boostOrange);
+      else this.playerPortrait.clearTint();
     }
   }
 
   updateEnemyCardVisuals() {
     const enemy = this.fight.enemy;
     this.enemyName.setText(enemy.name);
-    this.enemyTag.setParams({ k: this.fight.enemyIndex + 1, total: 6 });
+    this.enemyTag.setParams(this.enemyTagParams());
 
     const enemyTex = enemy.isBoss
       ? AssetResolver.getBossKey(this, enemy.assetKey)
@@ -368,6 +482,8 @@ export class BattleScene extends Phaser.Scene {
       this.handleEnemyAttack(attackEvent);
     }
 
+    if (this.fight.hasPowerUps) this.refreshPowerUps();
+
     if (!this.boardView.isAnimating && !frozen && !this.bossCasting && !this.moveInFlight) {
       this.boardView.setSelected(this.inputManager.selectedCell);
     }
@@ -389,7 +505,7 @@ export class BattleScene extends Phaser.Scene {
     });
 
     if (attackEvent.attacker === 'boss') {
-      AudioManager.playBossSfx(this.stage);
+      AudioManager.playBossSfx(attackEvent.enemy.stage || this.stage);
     } else {
       AudioManager.playSfx('sfx.hit');
     }
@@ -397,14 +513,26 @@ export class BattleScene extends Phaser.Scene {
     if (attackEvent.isGameOver) {
       this.inputManager.setEnabled(false);
       this.time.delayedCall(THEME.fx.orbFlightMs + 400, () => {
-        this.scene.start('GameOver', { stage: this.stage });
+        if (this.mode === 'bossRush') {
+          const defeated = this.fight.defeatedCount;
+          const { best, isNewBest } = StoryProgression.onBossRushEnd(defeated);
+          this.scene.start('Results', { mode: 'bossRush', score: defeated, bestScore: best, isNewBest });
+        } else {
+          this.scene.start('GameOver', this.battleData());
+        }
       });
       return;
     }
 
     // 2. Boss effect is queued; it is cast once any in-flight player move has resolved.
+    // It belongs to this boss: if the boss is defeated first (Boss Rush: the next one is a boss
+    // too), the effect is dropped (decision 31).
     if (attackEvent.attacker === 'boss' && attackEvent.effect) {
-      this.pendingBossEffects.push({ bossName: attackEvent.enemy.name, effect: attackEvent.effect });
+      this.pendingBossEffects.push({
+        bossName: attackEvent.enemy.name,
+        effect: attackEvent.effect,
+        enemyIndex: this.fight.enemyIndex
+      });
       // No new move may start now; a move already in progress finishes first.
       this.bossCasting = true;
       this.inputManager.setEnabled(false);
@@ -418,7 +546,10 @@ export class BattleScene extends Phaser.Scene {
   // Casts the next queued boss effect. Returns true if a cast started.
   runPendingBossEffect() {
     if (this.castInProgress) return true;
+    // Drop effects of a boss that has been defeated since it attacked
+    this.pendingBossEffects = this.pendingBossEffects.filter((p) => p.enemyIndex === this.fight.enemyIndex);
     if (!this.pendingBossEffects.length) {
+      this.bossCasting = false;
       return false;
     }
     if (this.fight.isStageComplete || this.fight.isGameOver || !this.fight.enemy.isBoss) {
@@ -544,7 +675,7 @@ export class BattleScene extends Phaser.Scene {
       textColor: THEME.colors.inkHex,
       onClick: () => {
         popup.destroy();
-        this.scene.restart({ stage: this.stage });
+        this.scene.restart(this.battleData());
       }
     });
     d.add(retryBtn);
@@ -640,7 +771,7 @@ export class BattleScene extends Phaser.Scene {
       fontSize: '16px',
       onClick: () => {
         popup.destroy();
-        this.scene.restart({ stage: this.stage });
+        this.scene.restart(this.battleData());
       }
     });
 
@@ -705,8 +836,19 @@ export class BattleScene extends Phaser.Scene {
       Math.max(16, cZone.height * 0.7)
     );
 
+    // Hard mode power-up buttons (may take a row from the board zone in portrait)
+    let boardZone = battle.board;
+    if (this.healBtn) {
+      const plan = LayoutManager.planPowerUps(layout, this.cols, this.rows);
+      boardZone = plan.boardZone;
+      [this.healBtn, this.boostBtn].forEach((btn, i) => {
+        btn.resize(plan.size);
+        btn.setPosition(plan.positions[i].x, plan.positions[i].y);
+      });
+    }
+
     // Board Metrics & Placement
-    const metrics = LayoutManager.computeBoardMetrics(this.cols, this.rows, battle.board);
+    const metrics = LayoutManager.computeBoardMetrics(this.cols, this.rows, boardZone);
     if (!this.boardView.boardMetrics) {
       this.boardView.initGrid(this.boardGrid, metrics);
     } else {

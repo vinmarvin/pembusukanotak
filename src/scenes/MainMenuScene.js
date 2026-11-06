@@ -34,9 +34,8 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   create() {
-    // Play menu BGM (allowed to keep playing when the tab is in the background)
+    // Play menu BGM
     AudioManager.playBgm('bgm.menu');
-    AudioManager.setBackgroundPlay(true);
 
     // Easter egg: 15 minutes of menu music in one sitting
     this.listenTracker = new MenuListenTracker({ onUnlock: () => this.onFullyBrainRotUnlocked() });
@@ -168,7 +167,6 @@ export class MainMenuScene extends Phaser.Scene {
       if (this.unsubSave) this.unsubSave();
       if (this.unsubLayout) this.unsubLayout();
       if (this.unsubSettings) this.unsubSettings();
-      AudioManager.setBackgroundPlay(false);
       if (this.listenTracker) this.listenTracker.stop();
     });
   }

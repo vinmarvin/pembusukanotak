@@ -14,6 +14,34 @@ export const GAMEPLAY = {
     durationSec: 120, wrongSwapPenaltySec: 10, comboBonusSec: 5, match4BonusSec: 5,
     freezeSec: 15, scoreMultiplier: 5, scoreMultiplierSec: 10, bombSize: 4
   },
+  // Extra modes (owner request). Both unlock after Story Mode (normal) is finished.
+  modes: {
+    hard: {
+      // Per stage: 5 small, 3 medium, 2 big minions, then the area boss.
+      stageOrder: ['small', 'small', 'small', 'small', 'small', 'medium', 'medium', 'medium', 'large', 'large', 'boss'],
+      // HP is not refilled between enemies; it resets only when a stage starts.
+      carryHp: true,
+      // Green button: charges after destroying this many candies, heals this share of max HP.
+      heal: { candiesToCharge: 100, healPct: 0.3 },
+      // Orange button: attack per candy x multiplier for durationSec, usable again after cooldownSec.
+      damageBoost: { multiplier: 2, durationSec: 5, cooldownSec: 60 }
+    },
+    bossRush: {
+      // Player uses this Story stage's stats (HP and attack).
+      playerStage: 5,
+      // Bosses 1..9 of every 10 are picked at random from these stages; every 10th is finalBossStage.
+      poolStages: [1, 2, 3, 4],
+      finalBossEvery: 10,
+      finalBossStage: 5,
+      // After every tierEvery bosses defeated, all later bosses get +hpPerTier HP and +dmgPerTier damage.
+      tierEvery: 10,
+      hpPerTier: 20,
+      dmgPerTier: 2,
+      // HP carries over between bosses; every healEvery bosses defeated heals healPct of max HP.
+      healEvery: 5,
+      healPct: 0.5
+    }
+  },
   memeBook: { candyUnlockCount: 100 },
   achievements: { scoreHunterScore: 100000 },
   balanceSim: { secondsPerMatch: 4, candiesPerMatch: 3 },

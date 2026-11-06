@@ -39,13 +39,29 @@ export default {
     boss: 'Bos',
     playerStats: 'HP: {hp} | ATK: {atk}',
     startBattle: 'Mulai Pertarungan',
-    lockedNotice: 'Selesaikan stage {n} dulu'
+    lockedNotice: 'Selesaikan stage {n} dulu',
+    lockedHard: 'Selesaikan stage sulit {n} dulu',
+    hardMode: 'Mode Sulit',
+    normalMode: 'Mode Normal',
+    bossMode: 'Mode Bos',
+    hardTag: 'MODE SULIT',
+    hardStage: 'STAGE SULIT {n}',
+    modesLocked: 'Tamatkan Mode Cerita untuk membuka Mode Sulit dan Mode Bos!'
   },
   battle: {
     playerName: 'Nirodha',
     vs: 'VS',
     stageTag: 'Stage {n}',
     enemyTag: 'Musuh {k}/{total}',
+    hardStageTag: 'Sulit {n}',
+    bossRushTag: 'Boss Rush',
+    bossCount: 'Bos ke-{k}',
+    healed: 'PULIH!',
+    healAmount: '+{hp} HP',
+    heal: 'Pulihkan',
+    boost: 'ATK x{mult}',
+    boostOn: 'ATK x{mult}!',
+    ready: 'SIAP!',
     minion: 'KROCO',
     boss: 'BOS',
     freezeCountdown: 'BEKU! {sec}d',
@@ -92,7 +108,12 @@ export default {
     bestScore: 'Skor Terbaik',
     newBest: 'REKOR BARU!',
     playAgain: 'Main Lagi',
-    menu: 'Menu Utama'
+    menu: 'Menu Utama',
+    bossRush: {
+      title: 'Boss Rush Selesai',
+      score: 'Bos Dikalahkan',
+      bestScore: 'Rekor Terbaik'
+    }
   },
   memebook: {
     title: 'Jurnal Meme',

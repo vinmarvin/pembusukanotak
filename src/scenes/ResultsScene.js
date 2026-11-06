@@ -19,6 +19,12 @@ export class ResultsScene extends Phaser.Scene {
     this.score = data.score || 0;
     this.bestScore = data.bestScore || 0;
     this.isNewBest = data.isNewBest || false;
+    // 'timeKill' (default) or 'bossRush' (score = bosses defeated)
+    this.mode = data.mode === 'bossRush' ? 'bossRush' : 'timeKill';
+  }
+
+  key(name) {
+    return this.mode === 'bossRush' ? `results.bossRush.${name}` : `results.${name}`;
   }
 
   create() {
@@ -44,7 +50,7 @@ export class ResultsScene extends Phaser.Scene {
     this.dialog.add(this.panel);
 
     // Title
-    this.title = new InkText(this, 0, -ph * 0.36, t('results.title'), {
+    this.title = new InkText(this, 0, -ph * 0.36, t(this.key('title')), {
       fontSize: '28px',
       color: THEME.colors.arcadeYellowHex,
       isTitle: true
@@ -66,7 +72,7 @@ export class ResultsScene extends Phaser.Scene {
       this.dialog.add([this.newBestBadge, this.newBestText]);
 
       // Score Label & Score Value (positioned with clear separation below the badge)
-      this.scoreLabel = new LocalizedText(this, 0, -ph * 0.10, 'results.score', {}, {
+      this.scoreLabel = new LocalizedText(this, 0, -ph * 0.10, this.key('score'), {}, {
         fontSize: '14px',
         color: '#CCCCCC',
         isHud: true
@@ -78,7 +84,7 @@ export class ResultsScene extends Phaser.Scene {
       });
     } else {
       // Score Label & Score Value (standard spacing when not new best)
-      this.scoreLabel = new LocalizedText(this, 0, -ph * 0.16, 'results.score', {}, {
+      this.scoreLabel = new LocalizedText(this, 0, -ph * 0.16, this.key('score'), {}, {
         fontSize: '14px',
         color: '#CCCCCC',
         isHud: true
@@ -91,7 +97,7 @@ export class ResultsScene extends Phaser.Scene {
     }
 
     // Best Score
-    this.bestScoreText = new LocalizedText(this, 0, ph * 0.13, 'results.bestScore', {}, {
+    this.bestScoreText = new LocalizedText(this, 0, ph * 0.13, this.key('bestScore'), {}, {
       fontSize: '13px',
       color: THEME.colors.mutedGreyHex,
       isHud: true
@@ -111,7 +117,7 @@ export class ResultsScene extends Phaser.Scene {
       bgColor: THEME.colors.slimeGreen,
       textColor: '#FFFFFF',
       fontSize: '16px',
-      onClick: () => this.scene.start('TimeKill')
+      onClick: () => this.scene.start(this.mode === 'bossRush' ? 'Battle' : 'TimeKill', this.mode === 'bossRush' ? { mode: 'bossRush' } : undefined)
     });
 
     this.menuBtn = new Button(this, btnW * 0.55, btnY, btnW, 46, {

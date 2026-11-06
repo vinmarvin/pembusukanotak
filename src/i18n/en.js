@@ -39,13 +39,29 @@ export default {
     boss: 'Boss',
     playerStats: 'HP: {hp} | ATK: {atk}',
     startBattle: 'Start Battle',
-    lockedNotice: 'Clear stage {n} first'
+    lockedNotice: 'Clear stage {n} first',
+    lockedHard: 'Clear hard stage {n} first',
+    hardMode: 'Hard Mode',
+    normalMode: 'Normal Mode',
+    bossMode: 'Boss Mode',
+    hardTag: 'HARD MODE',
+    hardStage: 'HARD STAGE {n}',
+    modesLocked: 'Finish Story Mode to unlock Hard Mode and Boss Mode!'
   },
   battle: {
     playerName: 'Nirodha',
     vs: 'VS',
     stageTag: 'Stage {n}',
     enemyTag: 'Enemy {k}/{total}',
+    hardStageTag: 'Hard {n}',
+    bossRushTag: 'Boss Rush',
+    bossCount: 'Boss #{k}',
+    healed: 'HEALED!',
+    healAmount: '+{hp} HP',
+    heal: 'Heal',
+    boost: 'ATK x{mult}',
+    boostOn: 'ATK x{mult}!',
+    ready: 'READY!',
     minion: 'MINION',
     boss: 'BOSS',
     freezeCountdown: 'FROZEN! {sec}s',
@@ -92,7 +108,12 @@ export default {
     bestScore: 'Best Score',
     newBest: 'NEW BEST!',
     playAgain: 'Play Again',
-    menu: 'Main Menu'
+    menu: 'Main Menu',
+    bossRush: {
+      title: 'Boss Rush Over',
+      score: 'Bosses Defeated',
+      bestScore: 'Best Run'
+    }
   },
   memebook: {
     title: 'Journal of Meme',

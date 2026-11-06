@@ -3,9 +3,8 @@
 import { GAMEPLAY } from '../../config/gameplay.config.js';
 import { BOSSES_CONFIG } from '../../config/bosses.config.js';
 
-export function enemyFor(stage, index) {
+export function enemyFor(stage, index, order = GAMEPLAY.stageOrder) {
   const s = Math.max(1, Math.min(GAMEPLAY.stages, stage));
-  const order = GAMEPLAY.stageOrder || ['small', 'small', 'medium', 'medium', 'large', 'boss'];
   const typeKey = order[Math.max(0, Math.min(order.length - 1, index))];
 
   if (typeKey === 'boss') {
@@ -56,3 +55,27 @@ export function enemyFor(stage, index) {
   };
 }
 
+
+// Boss Rush (owner): the n-th boss of the run (index 0-based). Every finalBossEvery-th boss is the
+// combined final boss; the others are picked at random from poolStages. After every tierEvery
+// bosses defeated, bosses get +hpPerTier HP and +dmgPerTier damage on top of their base stats.
+export function bossRushEnemy(index, rng = null) {
+  const cfg = GAMEPLAY.modes.bossRush;
+  const isFinal = (index + 1) % cfg.finalBossEvery === 0;
+  let stage = cfg.finalBossStage;
+  if (!isFinal) {
+    const pool = cfg.poolStages;
+    stage = rng ? rng.gameChoice(pool) : pool[Math.floor(Math.random() * pool.length)];
+  }
+  const base = enemyFor(stage, GAMEPLAY.stageOrder.length - 1);
+  const tier = Math.floor(index / cfg.tierEvery);
+  const hp = base.hp + tier * cfg.hpPerTier;
+  return {
+    ...base,
+    index,
+    tier,
+    hp,
+    maxHp: hp,
+    dmg: base.dmg + tier * cfg.dmgPerTier
+  };
+}

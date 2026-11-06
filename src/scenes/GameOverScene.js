@@ -18,11 +18,12 @@ export class GameOverScene extends Phaser.Scene {
 
   init(data) {
     this.stage = data.stage || 1;
+    this.mode = data.mode === 'hard' ? 'hard' : 'normal';
   }
 
   create() {
     AudioManager.playSfx('sfx.lose');
-    StoryProgression.onGameOver();
+    if (this.mode === 'normal') StoryProgression.onGameOver();
 
     const w = this.scale.width;
     const h = this.scale.height;
@@ -64,7 +65,7 @@ export class GameOverScene extends Phaser.Scene {
       fontSize: '16px',
       onClick: () => {
         // Decision 8: restart current stage from its first enemy
-        this.scene.start('Battle', { stage: this.stage });
+        this.scene.start('Battle', { stage: this.stage, mode: this.mode });
       }
     });
 

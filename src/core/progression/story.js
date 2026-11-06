@@ -45,5 +45,39 @@ export class StoryProgression {
 
     return SaveManager.data;
   }
-}
 
+  // ── Extra modes (owner): Hard mode and Boss Rush unlock once Story Mode (normal) is finished ──
+
+  static areExtraModesUnlocked(save = SaveManager.data) {
+    return !!save.storyCompleted;
+  }
+
+  // Hard mode has its own unlock path: hard stage N+1 opens after hard stage N is cleared.
+  static isHardStageUnlocked(stage, save = SaveManager.data) {
+    if (!StoryProgression.areExtraModesUnlocked(save)) return false;
+    if (stage === 1) return true;
+    return (save.hardStageCleared || 0) >= stage - 1;
+  }
+
+  static onHardStageCleared(stage) {
+    SaveManager.update((s) => {
+      s.hardStageCleared = Math.max(s.hardStageCleared || 0, stage);
+      if (!s.bossDefeated) s.bossDefeated = {};
+      s.bossDefeated[`b${stage}`] = true;
+      checkAchievements(s);
+    });
+    return SaveManager.data;
+  }
+
+  // Boss Rush run ended with `defeated` bosses. Saves the best run; returns { best, isNewBest }.
+  static onBossRushEnd(defeated) {
+    const prev = SaveManager.data.bossRushBest || 0;
+    const isNewBest = defeated > prev;
+    if (isNewBest) {
+      SaveManager.update((s) => {
+        s.bossRushBest = defeated;
+      });
+    }
+    return { best: Math.max(prev, defeated), isNewBest };
+  }
+}

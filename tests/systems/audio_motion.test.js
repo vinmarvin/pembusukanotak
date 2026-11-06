@@ -44,6 +44,54 @@ describe('Phase 7 Audio, Motion & Tutorial Gate', () => {
       expect(mockSound.play).toHaveBeenCalledTimes(1);
     });
 
+    it('does not pause the audio context when the game loses focus (background play)', () => {
+      const mockSound = { pauseOnBlur: true, get: vi.fn(), play: vi.fn() };
+      AudioManager.init({ sound: mockSound });
+      expect(mockSound.pauseOnBlur).toBe(false);
+    });
+
+    it('plays only one Meme Book clip at a time (spam taps are ignored)', () => {
+      const clips = [];
+      const mockSound = {
+        get: vi.fn().mockReturnValue(true),
+        play: vi.fn(),
+        add: vi.fn(() => {
+          const handlers = {};
+          const clip = {
+            isPlaying: false,
+            once: (ev, fn) => (handlers[ev] = fn),
+            play: vi.fn(() => (clip.isPlaying = true)),
+            stop: vi.fn(() => (clip.isPlaying = false)),
+            destroy: vi.fn(),
+            finish: () => {
+              clip.isPlaying = false;
+              handlers.complete();
+            }
+          };
+          clips.push(clip);
+          return clip;
+        })
+      };
+      AudioManager.init({ sound: mockSound });
+      AudioManager.stopMemeClip();
+
+      expect(AudioManager.playMemeClip('sfx.boss.b1')).toBe(true);
+      expect(AudioManager.playMemeClip('sfx.boss.b1')).toBe(false);
+      expect(AudioManager.playMemeClip('sfx.boss.b1')).toBe(false);
+      expect(clips.length).toBe(1);
+
+      // After the clip ends, the next tap plays again
+      clips[0].finish();
+      expect(AudioManager.isMemeClipPlaying()).toBe(false);
+      expect(AudioManager.playMemeClip('sfx.boss.b1')).toBe(true);
+      expect(clips.length).toBe(2);
+
+      // Turning the page stops the current clip
+      AudioManager.stopMemeClip();
+      expect(clips[1].stop).toHaveBeenCalled();
+      expect(AudioManager.isMemeClipPlaying()).toBe(false);
+    });
+
     it('persists mute state in SaveManager and restores upon load', () => {
       SaveManager.reset();
       expect(AudioManager.isMuted()).toBe(false);

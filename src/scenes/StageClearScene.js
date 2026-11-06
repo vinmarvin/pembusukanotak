@@ -19,20 +19,22 @@ export class StageClearScene extends Phaser.Scene {
 
   init(data) {
     this.stage = data.stage || 1;
+    this.mode = data.mode === 'hard' ? 'hard' : 'normal';
   }
 
   create() {
     AudioManager.playSfx('sfx.win');
 
     // Update progression and persistence
-    StoryProgression.onStageCleared(this.stage);
+    if (this.mode === 'hard') StoryProgression.onHardStageCleared(this.stage);
+    else StoryProgression.onStageCleared(this.stage);
 
     const w = this.scale.width;
     const h = this.scale.height;
 
     this.topBar = new TopBar(this, {
       showMenuBtn: true,
-      onMenuClick: () => this.scene.start('StageSelect')
+      onMenuClick: () => this.scene.start('StageSelect', { mode: this.mode })
     });
 
     // Panel Dialog
@@ -94,6 +96,10 @@ export class StageClearScene extends Phaser.Scene {
         textColor: '#FFFFFF',
         fontSize: '16px',
         onClick: () => {
+          if (this.mode === 'hard') {
+            this.scene.start('Battle', { stage: this.stage + 1, mode: 'hard' });
+            return;
+          }
           this.scene.start('StoryText', {
             key: `story.area${this.stage + 1}`,
             nextScene: 'Battle',
@@ -108,9 +114,19 @@ export class StageClearScene extends Phaser.Scene {
         bgColor: THEME.colors.playfieldTray,
         textColor: '#FFFFFF',
         fontSize: '16px',
-        onClick: () => this.scene.start('Battle', { stage: this.stage })
+        onClick: () => this.scene.start('Battle', { stage: this.stage, mode: this.mode })
       });
       this.dialog.add(this.retryBtn);
+    } else if (this.mode === 'hard') {
+      // Hard mode finished: back to the (hard) brain map
+      this.endingBtn = new Button(this, 0, btnY, 220, 48, {
+        text: t('stageclear.menu'),
+        bgColor: THEME.colors.arcadeYellow,
+        textColor: '#FFFFFF',
+        fontSize: '18px',
+        onClick: () => this.scene.start('StageSelect', { mode: 'hard' })
+      });
+      this.dialog.add(this.endingBtn);
     } else {
       // Completed Stage 5!
       this.endingBtn = new Button(this, 0, btnY, 220, 48, {
@@ -119,6 +135,10 @@ export class StageClearScene extends Phaser.Scene {
         textColor: '#FFFFFF',
         fontSize: '18px',
         onClick: () => {
+          if (this.mode === 'hard') {
+            this.scene.start('Battle', { stage: this.stage + 1, mode: 'hard' });
+            return;
+          }
           this.scene.start('StoryText', {
             key: 'story.ending',
             nextScene: 'MainMenu',

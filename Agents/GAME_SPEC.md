@@ -87,6 +87,9 @@ tests/               mirrors src/core, plus i18n and assets tests
 | 31 | Boss attack turn order (owner): when the boss countdown hits 0, the boss damage lands at once. A player move already in progress then resolves fully and deals its damage. Only after the board settles is the boss effect (shuffle, remove 10, freeze) cast, with its banner; no new move can start from the attack until the cast ends. If that move defeats the boss, the effect is dropped. `FightEngine.tick(dt)` without a grid returns the effect; `castBossEffect(effect, grid)` applies it. |
 | 32 | Main-menu easter eggs (owner): the floating decor icons are silent buttons (no hand cursor, hover, bounce or colour change). Clicking the 67 candy 67 times plays `egg.c67` (67 earrape); the bear-like small minion 42 times plays `egg.ambatukam` (Ambatukam Termuwani); the Skibidi toilet 82 times plays `egg.skibidi` (SkibidJumpScare video) in a centred popup with no close button that closes itself when the video ends. While an egg plays, music and every other sound are silenced and all menu buttons ignore input. Click counts last for the browser session and reset after the egg fires. Egg volume follows the SFX slider and the mute button. Values in `src/config/eastereggs.config.js`; media from the owner's read-only `easteregg/` folder. |
 | 33 | Time Kill low-score easter egg (owner): when a run ends (timer reaches 0) with a final score of 5000 or less, before the Results screen, a centred popup shows `egg.less5000` (`easteregg/5000.png`) and plays `sfx.egg.less5000` (`audio/sfx_less5000.mp3`). Music and other sounds are silenced and input is blocked while it plays. The popup has no close button until the sound ends; then a close button appears and closing it opens the Results screen. Leaving through Pause > Menu never triggers it. Sound volume follows the SFX slider and mute. Values in `EASTER_EGGS_CONFIG.lowScore`. |
+| 34 | Stage Select brain map (owner): the map panel shows a side-view brain drawn in code (cerebrum with folds, cerebellum, brain stem), scaled to fit the panel. The 5 nodes sit on brain areas from the outer edge to the core. Areas not cleared yet are covered in brainrot (green slime, bruises); clearing an area heals it (soft pink glow). In Hard mode the map shows hard progress. Values in `src/config/brainmap.config.js`. |
+| 35 | Hard mode (owner): unlocks when Story Mode is finished. Toggled by the yellow Hard Mode button on Stage Select (next to Menu in the top bar on wide screens, next to Back on narrow ones). Own unlock path: hard stage N+1 opens after hard stage N (`hardStageCleared`). Same player stats per stage (5.2). Each stage: 5 small, 3 medium, 2 big minions, then the area boss. Player HP carries over between enemies and resets only when a stage starts. Two power-up buttons left of the board (row under the board in portrait): green Heal charges by destroying 100 candies (matches and cascades) and restores 30% of max HP, then recharges; orange Damage Boost multiplies attack x2 for 5 s, usable again 60 s after activation (ready at stage start). Power-ups are disabled while frozen or behind a popup. Hard stage clears also count as boss defeats for the Meme Book. No story text in hard mode. |
+| 36 | Boss mode / Boss Rush (owner): unlocks when Story Mode is finished; red Boss Mode button on Stage Select. Endless run of bosses with Stage 5 player stats (180 HP, attack 6). Bosses 1-9 of every 10 are random from the stage 1-4 bosses; every 10th is the combined Stage 5 boss (Trippa Troppa Tralala Lirila Tung Tung Sahur Boneca Crocodina, base HP 350). After every 10 bosses defeated, later bosses get +20 HP and +2 damage on top of their base (tier = floor(defeated / 10)). HP carries over; every 5 bosses defeated heals 50% of max HP. Boss effects, intervals and turn order as decision 31 (an effect of a defeated boss is dropped). The run ends at HP 0: Results shows bosses defeated and the best run (`bossRushBest`). No power-up buttons. Music: `bgm.timekill`. |
 
 ## 4. Config (`src/config/gameplay.config.js`, copy exactly; tuning means editing config files only)
 
@@ -106,6 +109,18 @@ export const GAMEPLAY = {
   timeKill: {
     durationSec: 120, wrongSwapPenaltySec: 10, comboBonusSec: 5, match4BonusSec: 5,
     freezeSec: 15, scoreMultiplier: 5, scoreMultiplierSec: 10, bombSize: 4
+  },
+  modes: {
+    hard: {
+      stageOrder: ['small','small','small','small','small','medium','medium','medium','large','large','boss'],
+      carryHp: true,
+      heal: { candiesToCharge: 100, healPct: 0.3 },
+      damageBoost: { multiplier: 2, durationSec: 5, cooldownSec: 60 }
+    },
+    bossRush: {
+      playerStage: 5, poolStages: [1, 2, 3, 4], finalBossEvery: 10, finalBossStage: 5,
+      tierEvery: 10, hpPerTier: 20, dmgPerTier: 2, healEvery: 5, healPct: 0.5
+    }
   },
   memeBook: { candyUnlockCount: 100 },
   achievements: { scoreHunterScore: 100000 },
@@ -176,7 +191,8 @@ Timer 120 s. Rules are decisions 5, 11 to 16. Power-up effects are decision 15.
 
 ### 5.9 Save object
 ```js
-{ version: 1, stageCleared: 0, gameOversSinceStage1Start: 0, storyCompleted: false,
+{ version: 1, stageCleared: 0, hardStageCleared: 0, bossRushBest: 0,
+  gameOversSinceStage1Start: 0, storyCompleted: false,
   candyDestroyed: { c67: 0, nugget: 0, skibidi: 0, lirili: 0, udin: 0, bluberini: 0 },
   bossDefeated: { b1: false, b2: false, b3: false, b4: false, b5: false },
   achievements: { freshNewBrain: false, fullyBrainRot: false, scoreHunter: false,
@@ -202,4 +218,4 @@ Boss effects are not included. Do not change any number because of this table; r
 Scene flow: Boot -> Preload -> MainMenu -> (StageSelect -> [StoryText] -> Battle -> StageClear | GameOver) | TimeKill -> Results | MemeBook | Achievements. Popups (Settings, Credits, Donation QR, Pause/Leave, Tutorial) are overlays available where the mockups show them. Battle and TimeKill read the layout from `LayoutManager` and listen to `layout:changed` and `language:changed`. Input is locked unless the scene is in its playable state.
 
 ## 7. Out of scope (do not build)
-Online features, ads, purchases, multiplayer, leaderboards, native app packaging, extra modes, extra characters, skins, shop, coins, energy, XP, stars, perks.
+Online features, ads, purchases, multiplayer, leaderboards, native app packaging, extra characters, skins, shop, coins, energy, XP, stars, perks. Extra modes other than Hard mode and Boss Rush (decisions 35, 36, owner request).
