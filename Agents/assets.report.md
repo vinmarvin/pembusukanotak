@@ -1,5 +1,5 @@
 # Assets Synchronization Report
-Generated at: 2026-11-06T01:04:44.566Z
+Generated at: 2026-11-06T04:33:27.827Z
 
 ## Mapped Assets (36)
 | Source File | Logical Key | Kind | Category | Original | Trimmed | Output |
@@ -26,7 +26,7 @@ Generated at: 2026-11-06T01:04:44.566Z
 | `audio\sfx_67.mp3` | `sfx.candy.c67` | audio | sfx | 49353 bytes | N/A | assets/audio/sfx_candy_c67.mp3 |
 | `audio\sfx_Blueberrinni octopussini.mp3` | `sfx.candy.bluberini` | audio | sfx | 36709 bytes | N/A | assets/audio/sfx_candy_bluberini.mp3 |
 | `audio\sfx_Boneca Ambalabu.mp3` | `sfx.boss.b3` | audio | sfx | 28659 bytes | N/A | assets/audio/sfx_boss_b3.mp3 |
-| `audio\sfx_Cappuccino Assassino.m4a` | `sfx.boss.b2` | audio | sfx | 44526 bytes | N/A | assets/audio/sfx_boss_b2.m4a |
+| `audio\sfx_Cappuccino Assassino.m4a` | `sfx.boss.b2` | audio | sfx | 44526 bytes | N/A | assets/audio/sfx_boss_b2.mp3 |
 | `audio\sfx_hit.mp3` | `sfx.hit` | audio | sfx | 26880 bytes | N/A | assets/audio/sfx_hit.mp3 |
 | `audio\sfx_less5000.mp3` | `sfx.egg.less5000` | audio | sfx | 145352 bytes | N/A | assets/audio/sfx_egg_less5000.mp3 |
 | `audio\sfx_Lirili Larila.mp3` | `sfx.candy.lirili` | audio | sfx | 47315 bytes | N/A | assets/audio/sfx_candy_lirili.mp3 |
@@ -36,7 +36,7 @@ Generated at: 2026-11-06T01:04:44.566Z
 | `audio\sfx_Trippa Troppa Tralala Lirila Tung Tung Sahur Boneca Crocodina.mp3` | `sfx.boss.b5` | audio | sfx | 132302 bytes | N/A | assets/audio/sfx_boss_b5.mp3 |
 | `audio\sfx_Tung Tung sahur.mp3` | `sfx.boss.b4` | audio | sfx | 50711 bytes | N/A | assets/audio/sfx_boss_b4.mp3 |
 | `audio\sfx_Udin Din Din Dun.mp3` | `sfx.candy.udin` | audio | sfx | 33053 bytes | N/A | assets/audio/sfx_candy_udin.mp3 |
-| `easteregg\5000.png` | `egg.less5000` | image | easteregg | 102093 bytes | N/A | assets/easteregg/egg_less5000.png |
+| `easteregg\5000.png` | `egg.less5000` | image | easteregg | 102093 bytes | N/A | assets/easteregg/egg_less5000.webp |
 | `easteregg\67 earrape.mp3` | `egg.c67` | audio | easteregg | 69215 bytes | N/A | assets/easteregg/egg_c67.mp3 |
 | `easteregg\Ambatukam Termuwani.mp3` | `egg.ambatukam` | audio | easteregg | 57189 bytes | N/A | assets/easteregg/egg_ambatukam.mp3 |
 | `easteregg\SkibidJumpScare.mp4` | `egg.skibidi` | video | easteregg | 1063589 bytes | N/A | assets/easteregg/egg_skibidi.mp4 |

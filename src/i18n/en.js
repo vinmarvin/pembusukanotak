@@ -77,6 +77,48 @@ export default {
       freeze: '{boss} froze your brain for {sec}s!'
     }
   },
+  // Enemy taunt bubble after 5 wrong swaps in a row (GAME_SPEC decision 37). [DRAFT - owner to verify]
+  taunts: {
+    minion: {
+      l1: 'Bro is just shuffling candies 💀',
+      l2: 'Are you lost, little brain?',
+      l3: 'Skill issue detected.',
+      l4: "Take your time… I'll wait 😴",
+      l5: "That's not a match, chief."
+    },
+    b1: {
+      l1: 'Tralalero tralala~ missed again!',
+      l2: 'My sneakers move faster than your brain.',
+      l3: "Keep swiping, I'll keep singing~"
+    },
+    b2: {
+      l1: 'A careless brain… my favorite target.',
+      l2: "Too slow. Your coffee's getting cold.",
+      l3: "I don't even need to sneak up on you."
+    },
+    b3: {
+      l1: 'Even my tire has better aim.',
+      l2: 'Ambalabu! Stuck in the mud?',
+      l3: "You're rolling in circles, just like me."
+    },
+    b4: {
+      l1: 'Tung tung tung… wake up, your brain is asleep!',
+      l2: 'Sahur! Sahur! Still missing?',
+      l3: 'Even at 3 AM I match better than you.'
+    },
+    b5: {
+      l1: "Five brains in one, and you can't use one?",
+      l2: 'Every part of me is laughing at you.',
+      l3: 'The rot is winning, little brain.'
+    }
+  },
+  // Boss Rush callouts (GAME_SPEC decision 38). Slang: same text in both languages.
+  callouts: {
+    tier2: 'Tung Tung!',
+    tier3: 'TTT… Triple T',
+    tier4: 'Ohio Level',
+    tier5: 'You Got the Rizz'
+  },
   timekill: {
     score: 'Score',
     bestScore: 'Best High Score',
@@ -150,6 +192,11 @@ export default {
     supportCreator: {
       title: 'Support Creator',
       desc: 'Click the donation button'
+    },
+    secret: 'SECRET',
+    detoxComplete: {
+      title: 'Detox Complete',
+      desc: 'Beat 20 bosses in one Boss Rush run.'
     }
   },
   settings: {
@@ -166,10 +213,20 @@ export default {
   },
   credits: {
     title: 'Credits',
-    content: 'Pembusukan Otak\nA Brainrot Match-3 Combat Game\nCreated with passion and memes.',
-    musicCredit: '🎵 Music & SFX: Pixabay (click to visit)',
-    sfxCredit: '🎬 Sounds: VP Masti (click to open YouTube)',
-    support: 'Support the creator'
+    content: 'Pembusukan Otak\nA Brainrot Match-3 Combat Game',
+    course: 'Made for the TPG 2026 course',
+    techStack: 'Built with JavaScript, Phaser 3 and Vite',
+    engineLink: '🎮 Game engine: Phaser (phaser.io)',
+    fontsLink: '🔤 Fonts: Google Fonts (fonts.google.com)',
+    musicCredit: '🎵 Music & SFX: Pixabay (pixabay.com)',
+    sfxCredit: '🎬 Sounds: VP Masti (YouTube)',
+    feedback: '💬 Feedback, ideas, or own an asset here? Chat on WhatsApp',
+    support: 'Support the creator',
+    author: 'Made by {name} · NRP {nrp}'
+  },
+  rotate: {
+    title: 'Rotate your device',
+    hint: 'Pembusukan Otak is played in landscape.'
   },
   donation: {
     title: 'Support the Creator',

@@ -33,7 +33,7 @@ Read in Phase 0, 4, 5, 6, 7, and whenever you touch layout, HUD, scenes, text, o
 - **GameOver:** Retry stage, Menu.
 - **Results (Time Kill):** score, best score, new-best marker, Play again, Menu.
 - **MemeBook:** see section 6.
-- **Achievements:** header with count x/5 and 5 cards.
+- **Achievements:** header with count x/5 and 5 cards. Once the hidden Detox Complete is unlocked (GAME_SPEC decision 39) a 6th gold SECRET card appears and the count reads 6/5 with a gold pill; the main menu Achievements card shows 6/5 too.
 - **Settings popup:** see section 7.
 - **Credits popup:** credits text, "Support the creator" button (opens the QR popup), close.
 - **Donation QR popup:** QR image or placeholder, thank-you text, close.
@@ -46,6 +46,8 @@ Read in Phase 0, 4, 5, 6, 7, and whenever you touch layout, HUD, scenes, text, o
 - Time Kill popups: +5 s combo, +5 s match bonus, -10 s wrong swap. Power-up candies show an icon overlay. Active effect chips (Time Freeze and Score x5) with remaining seconds, shown only while active.
 - Wrong swap: candies swap back with a short shake.
 - Stage clear and boss defeat get a celebratory effect and, for a boss, a "Meme Book entry unlocked" toast.
+- Enemy taunt bubble (GAME_SPEC decision 37, PC only): speech bubble below the enemy card, in the free space right of the board, tail pointing at the enemy; hidden when there is no room, on resize, and when the enemy changes.
+- Boss Rush callouts (GAME_SPEC decision 38): big outlined text centred on the board, popping in per break and fading out; it scales down to fit the board width.
 
 ## 5. Tutorial
 Per mode, no tutorial at first launch (owner). Popup over the paused game the first time a mode is played, replayable from that mode's pause menu ("How to play"); not in Settings. Steps and art live in `src/config/tutorials.config.js`; every number shown comes from `GAMEPLAY`.

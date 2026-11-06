@@ -23,6 +23,8 @@ import { EasterEggPlayer } from '../systems/EasterEggPlayer.js';
 import { EASTER_EGGS_CONFIG } from '../config/eastereggs.config.js';
 import { createEggCounts, registerEggClick } from '../core/eastereggs.js';
 import { SpriteFit } from '../ui/SpriteFit.js';
+import { CREDITS_CONFIG } from '../config/credits.config.js';
+import { countUnlockedAchievements } from '../core/unlocks/achievements.js';
 
 // Click counts live for the whole browser session, so leaving the menu does not lose progress.
 const eggCounts = createEggCounts();
@@ -112,7 +114,7 @@ export class MainMenuScene extends Phaser.Scene {
     this.achBtn = this.createModeCard({
       titleKey: 'menu.achievements.title',
       subKey: 'menu.achievements.subtitle',
-      subParams: { unlocked: achCount, total: 5 },
+      subParams: { unlocked: achCount, total: ACHIEVEMENTS_CONFIG.total },
       color: THEME.colors.arcadeYellow,
       icon: '🏆',
       onClick: () => this.scene.start('Achievements')
@@ -186,7 +188,8 @@ export class MainMenuScene extends Phaser.Scene {
 
   getCardCounts(save = SaveManager.data) {
     const clearedCount = save.stageCleared || 0;
-    const achCount = ACHIEVEMENTS_CONFIG.list.filter((ach) => Boolean(save?.achievements && save.achievements[ach.id])).length;
+    // Hidden Detox Complete counts on top of the total (6/5, decision 39)
+    const achCount = countUnlockedAchievements(save);
     const memeCount = (Object.values(save.bossDefeated || {}).filter(Boolean).length) +
       (Object.values(save.candyDestroyed || {}).filter((v) => v >= 100).length);
     return { clearedCount, achCount, memeCount };
@@ -304,8 +307,8 @@ export class MainMenuScene extends Phaser.Scene {
   openCreditsPopup() {
     if (this.currentPopup) return;
 
-    const pw = Math.min(this.scale.width * 0.88, 440);
-    const ph = Math.min(this.scale.height * 0.88, 420);
+    const pw = Math.min(this.scale.width * 0.9, 540);
+    const ph = Math.min(this.scale.height * 0.92, 560);
 
     const popup = new Popup(this, pw, ph, {
       title: t('credits.title'),
@@ -315,44 +318,52 @@ export class MainMenuScene extends Phaser.Scene {
     });
 
     const d = popup.dialog;
+    const links = CREDITS_CONFIG.links;
+    const { name, nrp } = CREDITS_CONFIG.author;
 
-    // Main credits text
-    const content = new LocalizedText(this, 0, -ph * 0.32, 'credits.content', {}, {
-      fontSize: '14px',
-      color: '#FFFFFF'
-    });
-    content.setWordWrapWidth(pw - 50);
-    d.add(content);
+    // Rows from top to bottom. `lines` is how many text lines the row takes.
+    const rows = [
+      { key: 'credits.content', color: THEME.colors.whiteHex, lines: 2, big: true },
+      { key: 'credits.course', color: THEME.colors.arcadeYellowHex, lines: 1 },
+      { key: 'credits.techStack', color: THEME.colors.whiteHex, lines: 1 },
+      { key: 'credits.engineLink', color: THEME.colors.electricCyanHex, lines: 1, url: links.phaser },
+      { key: 'credits.fontsLink', color: THEME.colors.electricCyanHex, lines: 1, url: links.googleFonts },
+      { key: 'credits.musicCredit', color: THEME.colors.electricCyanHex, lines: 1, url: links.pixabay },
+      { key: 'credits.sfxCredit', color: THEME.colors.electricCyanHex, lines: 1, url: links.vpMasti },
+      { key: 'credits.feedback', color: THEME.colors.slimeGreenHex, lines: 1, url: links.whatsapp }
+    ];
 
-    // ── Clickable credit links ───────────────────────────────────────────
-    // "Music & SFX: Pixabay" → opens Pixabay
-    const pixabayLabel = new InkText(this, 0, -ph * 0.11, t('credits.musicCredit'), {
-      fontSize: '13px',
-      color: THEME.colors.electricCyanHex
-    });
-    pixabayLabel.setInteractive({ useHandCursor: true });
-    pixabayLabel.on('pointerup', () => {
-      window.open('https://pixabay.com', '_blank');
-    });
-    pixabayLabel.on('pointerover', () => pixabayLabel.setAlpha(0.75));
-    pixabayLabel.on('pointerout',  () => pixabayLabel.setAlpha(1));
-    d.add(pixabayLabel);
+    // Vertical budget: below the title, above the support button and the author line.
+    const authorY = ph / 2 - 22;
+    const btnH = Math.min(46, Math.max(38, ph * 0.09));
+    const btnY = authorY - 18 - btnH / 2 - 6;
+    const top = -ph / 2 + 64;
+    const bottom = btnY - btnH / 2 - 8;
+    const totalLines = rows.reduce((n, r) => n + r.lines, 0);
+    const lineH = (bottom - top) / totalLines;
+    const fontPx = Math.round(Phaser.Math.Clamp(lineH * 0.62, 12, 15));
 
-    // "Sound Effects: VP Masti" → opens YouTube channel
-    const vpLabel = new InkText(this, 0, -ph * 0.11 + 22, t('credits.sfxCredit'), {
-      fontSize: '13px',
-      color: THEME.colors.electricCyanHex
-    });
-    vpLabel.setInteractive({ useHandCursor: true });
-    vpLabel.on('pointerup', () => {
-      window.open('https://youtube.com/@vpmasti-098?si=yq0uFxD8w9eRc6MB', '_blank');
-    });
-    vpLabel.on('pointerover', () => vpLabel.setAlpha(0.75));
-    vpLabel.on('pointerout',  () => vpLabel.setAlpha(1));
-    d.add(vpLabel);
+    let y = top;
+    for (const row of rows) {
+      const rowH = row.lines * lineH;
+      const label = new InkText(this, 0, y + rowH / 2, t(row.key), {
+        fontSize: `${row.big ? fontPx + 2 : fontPx}px`,
+        color: row.color,
+        isTitle: !!row.big
+      });
+      label.setWordWrapWidth(pw - 48);
+      if (row.url) {
+        label.setInteractive({ useHandCursor: true });
+        label.on('pointerup', () => window.open(row.url, '_blank', 'noopener'));
+        label.on('pointerover', () => label.setAlpha(0.75));
+        label.on('pointerout', () => label.setAlpha(1));
+      }
+      d.add(label);
+      y += rowH;
+    }
 
     // Support button
-    const supportBtn = new Button(this, 0, ph * 0.28, 220, 48, {
+    const supportBtn = new Button(this, 0, btnY, 220, btnH, {
       text: t('credits.support'),
       bgColor: THEME.colors.punchMagenta,
       textColor: '#FFFFFF',
@@ -368,8 +379,17 @@ export class MainMenuScene extends Phaser.Scene {
         this.openDonationQrPopup();
       }
     });
-
     d.add(supportBtn);
+
+    // Author line at the very bottom
+    const author = new InkText(this, 0, authorY, t('credits.author', { name, nrp }), {
+      fontSize: `${fontPx}px`,
+      color: THEME.colors.arcadeYellowHex,
+      isHud: true
+    });
+    author.setWordWrapWidth(pw - 48);
+    d.add(author);
+
     this.currentPopup = popup;
   }
 

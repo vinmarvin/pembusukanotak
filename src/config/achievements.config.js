@@ -38,6 +38,17 @@ export const ACHIEVEMENTS_CONFIG = {
       titleKey: 'achievements.supportCreator.title',
       descKey: 'achievements.supportCreator.desc',
       icon: '💖'
+    },
+    // Hidden bonus (GAME_SPEC decision 39): invisible until unlocked, then counted on top of
+    // `total` (6/5). Needs every non-hidden achievement first, then a Boss Rush run that reaches
+    // bossRushBosses bosses defeated.
+    {
+      id: 'detoxComplete',
+      titleKey: 'achievements.detoxComplete.title',
+      descKey: 'achievements.detoxComplete.desc',
+      icon: '🌿',
+      hidden: true,
+      bossRushBosses: 20
     }
   ]
 };

@@ -4,9 +4,16 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { PNG } from 'pngjs';
+import sharp from 'sharp';
+import ffmpegPath from 'ffmpeg-static';
 import { classifyAsset, classifyEasterEgg } from '../src/core/assets/classify.js';
 import { ASSETS_MAP_OVERRIDES } from '../src/config/assets.map.js';
+import { COMPRESS } from '../src/config/compress.config.js';
+
+const execFileAsync = promisify(execFile);
 
 const ROOT_DIR = process.cwd();
 const VISUAL_DIR = path.join(ROOT_DIR, 'visual');
@@ -16,6 +23,13 @@ const PUBLIC_DIR = path.join(ROOT_DIR, 'public/assets');
 const IMAGES_OUT = path.join(PUBLIC_DIR, 'images');
 const AUDIO_OUT = path.join(PUBLIC_DIR, 'audio');
 const EGG_OUT = path.join(PUBLIC_DIR, 'easteregg');
+
+const FAVICON_PATH = path.join(ROOT_DIR, 'public/favicon.png');
+// Remembers which source + settings produced each encoded audio/video file, so builds skip ffmpeg
+// when nothing changed. Lives outside public/ so it never ships with the game.
+const CACHE_PATH = path.join(ROOT_DIR, 'scripts/asset-cache.json');
+// Hand-placed files in the output folders that the pipeline must never delete.
+const PROTECTED_OUTPUTS = new Set(['qr.jpg']);
 
 const MANIFEST_PATH = path.join(ROOT_DIR, 'src/config/assets.generated.js');
 const REPORT_PATH = fs.existsSync(path.join(ROOT_DIR, 'Agents'))
@@ -60,6 +74,79 @@ function scanFiles(dir) {
 function computeFileHash(filePath) {
   const buf = fs.readFileSync(filePath);
   return crypto.createHash('sha256').update(buf).digest('hex');
+}
+
+// ── Compression helpers ─────────────────────────────────────────────────
+function loadCache() {
+  try {
+    return JSON.parse(fs.readFileSync(CACHE_PATH, 'utf-8'));
+  } catch {
+    return {};
+  }
+}
+
+function cacheSignature(srcFile, opts) {
+  return `${computeFileHash(srcFile)}|v${COMPRESS.version}|${JSON.stringify(opts)}`;
+}
+
+// Runs `produce` only when the output is missing or its source/settings changed.
+async function withCache(cache, outPath, srcFile, opts, produce) {
+  const rel = path.relative(ROOT_DIR, outPath).replace(/\\/g, '/');
+  const sig = cacheSignature(srcFile, opts);
+  if (cache[rel] === sig && fs.existsSync(outPath)) return;
+  await produce();
+  cache[rel] = sig;
+}
+
+// Deletes old outputs with the same name but another extension (e.g. b5.png after b5.webp).
+function removeStaleSiblings(outPath) {
+  const dir = path.dirname(outPath);
+  const { name, base } = path.parse(outPath);
+  for (const f of fs.readdirSync(dir)) {
+    if (f === base || PROTECTED_OUTPUTS.has(f)) continue;
+    if (path.parse(f).name === name) fs.unlinkSync(path.join(dir, f));
+  }
+}
+
+async function runFfmpeg(args) {
+  await execFileAsync(ffmpegPath, ['-y', '-v', 'error', ...args]);
+}
+
+// Moves tmp to out, unless the source is the same format and already smaller (then copies source).
+function keepSmaller(srcFile, tmpPath, outPath) {
+  const sameExt = path.extname(srcFile).toLowerCase() === path.extname(outPath).toLowerCase();
+  if (sameExt && fs.statSync(srcFile).size <= fs.statSync(tmpPath).size) {
+    fs.copyFileSync(srcFile, outPath);
+    fs.unlinkSync(tmpPath);
+  } else {
+    fs.renameSync(tmpPath, outPath);
+  }
+}
+
+async function encodeMp3(srcFile, outPath, opts) {
+  const tmp = `${outPath}.tmp.mp3`;
+  await runFfmpeg([
+    '-i', srcFile, '-vn', '-map_metadata', '-1',
+    '-ac', String(opts.channels), '-ar', String(opts.sampleRate),
+    '-codec:a', 'libmp3lame', '-b:a', opts.bitrate, tmp
+  ]);
+  keepSmaller(srcFile, tmp, outPath);
+}
+
+async function encodeMp4(srcFile, outPath, opts) {
+  const tmp = `${outPath}.tmp.mp4`;
+  await runFfmpeg([
+    '-i', srcFile, '-map_metadata', '-1',
+    '-vf', `scale='min(${opts.maxWidth},iw)':-2`,
+    '-c:v', 'libx264', '-preset', 'slow', '-crf', String(opts.crf), '-pix_fmt', 'yuv420p',
+    '-c:a', 'aac', '-b:a', opts.audioBitrate, '-movflags', '+faststart', tmp
+  ]);
+  keepSmaller(srcFile, tmp, outPath);
+}
+
+function toWebp(input) {
+  const { quality, alphaQuality, effort } = COMPRESS.image;
+  return input.webp({ quality, alphaQuality, effort });
 }
 
 function trimAndScalePng(buf, maxDim) {
@@ -160,11 +247,12 @@ function trimAndScalePng(buf, maxDim) {
   };
 }
 
-export function runSyncAssets() {
+export async function runSyncAssets() {
   console.log('[sync-assets] Starting asset pipeline...');
   ensureDir(PUBLIC_DIR);
   ensureDir(IMAGES_OUT);
   ensureDir(AUDIO_OUT);
+  const cache = loadCache();
 
   const manifest = {
     images: {},
@@ -196,24 +284,34 @@ export function runSyncAssets() {
       const isPng = vFile.toLowerCase().endsWith('.png');
 
       let processed = null;
-      let outFileName = `${key}.png`;
-      let outPath = path.join(IMAGES_OUT, outFileName);
+      const outFileName = `${key}.webp`;
+      const outPath = path.join(IMAGES_OUT, outFileName);
 
       if (isPng) {
         processed = trimAndScalePng(srcBuf, maxDim);
-        fs.writeFileSync(outPath, processed.buffer);
+        await toWebp(sharp(processed.buffer)).toFile(outPath);
       } else {
-        // Direct copy for jpg/webp if present
-        const ext = path.extname(vFile);
-        outFileName = `${key}${ext}`;
-        outPath = path.join(IMAGES_OUT, outFileName);
-        fs.copyFileSync(vFile, outPath);
+        // jpg/webp: scale down to the category bound, then encode as WebP
+        const meta = await sharp(srcBuf).metadata();
+        const info = await toWebp(
+          sharp(srcBuf).resize(maxDim, maxDim, { fit: 'inside', withoutEnlargement: true })
+        ).toFile(outPath);
         processed = {
-          originalSize: { width: 0, height: 0 },
-          trimmedSize: { width: 0, height: 0 },
-          finalSize: { width: 0, height: 0 },
+          originalSize: { width: meta.width, height: meta.height },
+          trimmedSize: { width: meta.width, height: meta.height },
+          finalSize: { width: info.width, height: info.height },
           hasAlpha: true
         };
+      }
+      removeStaleSiblings(outPath);
+
+      // Small browser-tab icon from the logo (the full logo was 290 KB as a favicon)
+      if (key === 'logo') {
+        const s = COMPRESS.favicon.size;
+        await sharp(srcBuf)
+          .resize(s, s, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+          .png({ palette: true, compressionLevel: 9 })
+          .toFile(FAVICON_PATH);
       }
 
       const relPublicPath = `assets/images/${outFileName}`;
@@ -254,13 +352,14 @@ export function runSyncAssets() {
     }
 
     const { key, category } = classification;
-    const ext = path.extname(aFile);
     const safeKey = key.replace(/\./g, '_');
-    const outFileName = `${safeKey}${ext}`;
+    const outFileName = `${safeKey}.mp3`;
     const outPath = path.join(AUDIO_OUT, outFileName);
 
     try {
-      fs.copyFileSync(aFile, outPath);
+      const opts = category === 'bgm' ? COMPRESS.bgm : COMPRESS.sfx;
+      await withCache(cache, outPath, aFile, opts, () => encodeMp3(aFile, outPath, opts));
+      removeStaleSiblings(outPath);
       const relPublicPath = `assets/audio/${outFileName}`;
 
       manifest.audio[key] = {
@@ -294,9 +393,21 @@ export function runSyncAssets() {
       continue;
     }
     const { key, kind, category } = classification;
-    const outFileName = `${key.replace(/\./g, '_')}${path.extname(eFile).toLowerCase()}`;
+    const ext = { image: '.webp', audio: '.mp3', video: '.mp4' }[kind];
+    const outFileName = `${key.replace(/\./g, '_')}${ext}`;
+    const outPath = path.join(EGG_OUT, outFileName);
     try {
-      fs.copyFileSync(eFile, path.join(EGG_OUT, outFileName));
+      if (kind === 'image') {
+        const m = COMPRESS.eggImageMax;
+        await toWebp(
+          sharp(eFile).resize(m, m, { fit: 'inside', withoutEnlargement: true })
+        ).toFile(outPath);
+      } else if (kind === 'audio') {
+        await withCache(cache, outPath, eFile, COMPRESS.sfx, () => encodeMp3(eFile, outPath, COMPRESS.sfx));
+      } else {
+        await withCache(cache, outPath, eFile, COMPRESS.video, () => encodeMp4(eFile, outPath, COMPRESS.video));
+      }
+      removeStaleSiblings(outPath);
       const relPublicPath = `assets/easteregg/${outFileName}`;
       manifest.easterEggs[key] = { key, kind, path: relPublicPath };
       report.mapped.push({
@@ -354,6 +465,7 @@ export function runSyncAssets() {
 export const ASSETS_MANIFEST = ${JSON.stringify(manifest, null, 2)};
 `;
   fs.writeFileSync(MANIFEST_PATH, manifestContent, 'utf-8');
+  fs.writeFileSync(CACHE_PATH, JSON.stringify(cache, null, 2) + '\n', 'utf-8');
 
   // 5. Write assets.report.md
   let reportMd = `# Assets Synchronization Report
@@ -401,5 +513,8 @@ Generated at: ${new Date().toISOString()}
 
 // Execute if run directly
 if (process.argv[1] && process.argv[1].endsWith('sync-assets.mjs')) {
-  runSyncAssets();
+  runSyncAssets().catch((err) => {
+    console.error('[sync-assets] Failed:', err);
+    process.exit(1);
+  });
 }

@@ -77,6 +77,48 @@ export default {
       freeze: '{boss} membekukan otakmu selama {sec}d!'
     }
   },
+  // Ejekan musuh setelah 5 kali salah geser berturut-turut (GAME_SPEC decision 37). [DRAFT - owner to verify]
+  taunts: {
+    minion: {
+      l1: 'Bro cuma ngacak permen doang 💀',
+      l2: 'Nyasar ya, otak kecil?',
+      l3: 'Terdeteksi skill issue.',
+      l4: 'Santai aja… aku tungguin 😴',
+      l5: 'Itu bukan match, bos.'
+    },
+    b1: {
+      l1: 'Tralalero tralala~ meleset lagi!',
+      l2: 'Sepatuku lebih cepat dari otakmu.',
+      l3: 'Terus geser, aku terus nyanyi~'
+    },
+    b2: {
+      l1: 'Otak yang lengah… target favoritku.',
+      l2: 'Kelamaan. Kopimu keburu dingin.',
+      l3: 'Aku bahkan nggak perlu ngendap-ngendap.'
+    },
+    b3: {
+      l1: 'Ban-ku aja lebih jago ngincer.',
+      l2: 'Ambalabu! Kejebak lumpur ya?',
+      l3: 'Kamu muter-muter, sama kayak aku.'
+    },
+    b4: {
+      l1: 'Tung tung tung… bangun, otakmu masih tidur!',
+      l2: 'Sahuuur! Masih meleset aja?',
+      l3: 'Jam 3 pagi pun aku lebih jago match.'
+    },
+    b5: {
+      l1: 'Lima otak jadi satu, kamu satu aja nggak dipake?',
+      l2: 'Semua bagian tubuhku ngetawain kamu.',
+      l3: 'Brainrot menang, otak kecil.'
+    }
+  },
+  // Callout Boss Rush (GAME_SPEC decision 38). Slang: teks sama di kedua bahasa.
+  callouts: {
+    tier2: 'Tung Tung!',
+    tier3: 'TTT… Triple T',
+    tier4: 'Ohio Level',
+    tier5: 'You Got the Rizz'
+  },
   timekill: {
     score: 'Skor',
     bestScore: 'Skor Terbaik',
@@ -150,6 +192,11 @@ export default {
     supportCreator: {
       title: 'Support Creator',
       desc: 'Ketuk tombol donasi'
+    },
+    secret: 'RAHASIA',
+    detoxComplete: {
+      title: 'Detox Complete',
+      desc: 'Kalahkan 20 bos dalam satu Boss Rush.'
     }
   },
   settings: {
@@ -166,10 +213,20 @@ export default {
   },
   credits: {
     title: 'Kredit',
-    content: 'Pembusukan Otak\nGame Tarung Match-3 Brainrot\nDibuat dengan penuh dedikasi dan meme.',
-    musicCredit: '🎵 Musik & SFX: Pixabay (klik untuk kunjungi)',
-    sfxCredit: '🎬 Suara: VP Masti (klik untuk buka YouTube)',
-    support: 'Dukung kreator'
+    content: 'Pembusukan Otak\nGame Tarung Match-3 Brainrot',
+    course: 'Dibuat untuk mata kuliah TPG 2026',
+    techStack: 'Dibuat dengan JavaScript, Phaser 3, dan Vite',
+    engineLink: '🎮 Mesin game: Phaser (phaser.io)',
+    fontsLink: '🔤 Font: Google Fonts (fonts.google.com)',
+    musicCredit: '🎵 Musik & SFX: Pixabay (pixabay.com)',
+    sfxCredit: '🎬 Suara: VP Masti (YouTube)',
+    feedback: '💬 Kritik, saran, atau pemilik aset? Chat lewat WhatsApp',
+    support: 'Dukung kreator',
+    author: 'Dibuat oleh {name} · NRP {nrp}'
+  },
+  rotate: {
+    title: 'Putar perangkatmu',
+    hint: 'Pembusukan Otak dimainkan dalam mode lanskap.'
   },
   donation: {
     title: 'Dukung Kreator',

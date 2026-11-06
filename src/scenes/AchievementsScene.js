@@ -13,7 +13,7 @@ import { LayoutManager } from '../systems/LayoutManager.js';
 import { AudioManager } from '../systems/AudioManager.js';
 import { SaveManager } from '../systems/SaveManager.js';
 import { EventBus } from '../systems/EventBus.js';
-import { getAchievementProgress } from '../core/unlocks/achievements.js';
+import { getAchievementProgress, visibleAchievements, countUnlockedAchievements } from '../core/unlocks/achievements.js';
 import { t } from '../i18n/index.js';
 
 export class AchievementsScene extends Phaser.Scene {
@@ -80,13 +80,12 @@ export class AchievementsScene extends Phaser.Scene {
 
     const save = SaveManager.data;
 
-    // Count unlocked achievements
-    let unlockedCount = 0;
-    for (const ach of this.achievements) {
-      if (save?.achievements && save.achievements[ach.id]) {
-        unlockedCount++;
-      }
-    }
+    // Hidden achievements (Detox Complete, decision 39) appear only once unlocked and then count
+    // on top of the total: 6/5 with a gold pill.
+    this.achievements = visibleAchievements(save);
+    const total = ACHIEVEMENTS_CONFIG.total;
+    const unlockedCount = countUnlockedAchievements(save);
+    const overTotal = unlockedCount > total;
 
     // Short screens (phones sideways) get a compact header and a 2-column card grid.
     const short = height < 560;
@@ -102,14 +101,19 @@ export class AchievementsScene extends Phaser.Scene {
     });
     const pillPanel = new Panel(this, 0, 0, pillW, pillH, {
       bgColor: THEME.colors.cardBg,
-      outlineColor: THEME.colors.slimeGreen,
+      outlineColor: overTotal ? THEME.colors.arcadeYellow : THEME.colors.slimeGreen,
+      outlineWidth: overTotal ? 4 : undefined,
       radius: 14
     });
     const pillText = new LocalizedText(
       this, 0, 0,
       'achievements.progress',
-      { count: unlockedCount, total: 5 },
-      { fontSize: short ? '13px' : '15px', color: THEME.colors.slimeGreenHex, isHud: true }
+      { count: unlockedCount, total },
+      {
+        fontSize: short ? '13px' : '15px',
+        color: overTotal ? THEME.colors.arcadeYellowHex : THEME.colors.slimeGreenHex,
+        isHud: true
+      }
     );
 
     let headerBottom;
@@ -143,7 +147,7 @@ export class AchievementsScene extends Phaser.Scene {
     const cardsTop = headerBottom + (short ? 8 : 12);
     const cardsBottom = backBtnY - backBtnH / 2 - (short ? 8 : 12);
     const totalCardsH = cardsBottom - cardsTop;
-    const n = this.achievements.length; // 5
+    const n = this.achievements.length; // 5, or 6 with the hidden one
     const gap = short ? 8 : 10;
     const gridW = Math.min(width - 32, short ? 1000 : 820);
     const minCardH = 64;
@@ -153,15 +157,27 @@ export class AchievementsScene extends Phaser.Scene {
     const cardW = Math.floor((gridW - gap * (cols - 1)) / cols);
     const cardH = Math.floor((totalCardsH - gap * (rows - 1)) / rows);
 
-    this.achievements.forEach((ach, index) => {
-      const row = Math.floor(index / cols);
-      const col = index % cols;
-      const inRow = Math.min(cols, n - row * cols); // the last row may hold fewer cards: centre it
-      const rowW = inRow * cardW + (inRow - 1) * gap;
-      const cx = width / 2 - rowW / 2 + cardW / 2 + col * (cardW + gap);
-      const cy = cardsTop + row * (cardH + gap) + cardH / 2;
-      this.cardsContainer.add(this.buildCard(ach, save, cx, cy, cardW, cardH));
-    });
+    // If any card needs the compact status badge to fit its text, every card uses it so the grid
+    // looks consistent.
+    const buildAll = (forceCompact) => {
+      let anyCompact = false;
+      this.achievements.forEach((ach, index) => {
+        const row = Math.floor(index / cols);
+        const col = index % cols;
+        const inRow = Math.min(cols, n - row * cols); // the last row may hold fewer cards: centre it
+        const rowW = inRow * cardW + (inRow - 1) * gap;
+        const cx = width / 2 - rowW / 2 + cardW / 2 + col * (cardW + gap);
+        const cy = cardsTop + row * (cardH + gap) + cardH / 2;
+        const card = this.buildCard(ach, save, cx, cy, cardW, cardH, forceCompact);
+        anyCompact = anyCompact || card.compactStatus;
+        this.cardsContainer.add(card);
+      });
+      return anyCompact;
+    };
+    if (buildAll(false)) {
+      this.cardsContainer.removeAll(true);
+      buildAll(true);
+    }
 
     const backBtn = new Button(this, width / 2, backBtnY, 200, backBtnH, {
       text: t('common.menu'),
@@ -183,15 +199,18 @@ export class AchievementsScene extends Phaser.Scene {
 
   // One achievement card. Every size comes from the card size, and the title / description are
   // measured and stacked, so they never overlap whatever the screen.
-  buildCard(ach, save, cx, cy, cardW, cardH) {
+  buildCard(ach, save, cx, cy, cardW, cardH, forceCompact = false) {
     const isUnlocked = Boolean(save?.achievements && save.achievements[ach.id]);
     const progress = getAchievementProgress(save, ach.id);
     const card = this.add.container(cx, cy);
+    // Hidden bonus achievement: gold SECRET look
+    const gold = Boolean(ach.hidden && isUnlocked);
+    const unlockColor = gold ? THEME.colors.arcadeYellow : THEME.colors.slimeGreen;
 
     const panel = new Panel(this, 0, 0, cardW, cardH, {
       bgColor: THEME.colors.cardBg,
-      outlineColor: isUnlocked ? THEME.colors.slimeGreen : THEME.colors.ink,
-      outlineWidth: isUnlocked ? 3 : 2,
+      outlineColor: isUnlocked ? unlockColor : THEME.colors.ink,
+      outlineWidth: gold ? 4 : (isUnlocked ? 3 : 2),
       radius: 16
     });
 
@@ -200,7 +219,7 @@ export class AchievementsScene extends Phaser.Scene {
     const iconSize = Math.max(28, Math.min(cardH - 16, 58));
     const iconX = -cardW / 2 + padX + iconSize / 2;
     const iconBg = this.add.graphics();
-    iconBg.fillStyle(isUnlocked ? THEME.colors.slimeGreen : THEME.colors.playfieldTray, 1);
+    iconBg.fillStyle(isUnlocked ? unlockColor : THEME.colors.playfieldTray, 1);
     iconBg.fillRoundedRect(iconX - iconSize / 2, -iconSize / 2, iconSize, iconSize, 10);
     iconBg.lineStyle(2, THEME.colors.ink, 1);
     iconBg.strokeRoundedRect(iconX - iconSize / 2, -iconSize / 2, iconSize, iconSize, 10);
@@ -210,15 +229,20 @@ export class AchievementsScene extends Phaser.Scene {
       fontSize: `${Math.round(iconSize * 0.52)}px`
     }).setOrigin(0.5);
 
-    // Right status area
-    const rightW = Math.min(150, Math.max(96, cardW * 0.28));
-    const rightX = cardW / 2 - padX - rightW / 2;
+    // Right status area: a full "Unlocked" badge, or a compact square badge when the text needs
+    // the room (long descriptions on short screens, e.g. phones sideways). Progress bars keep it full.
+    const hasBar = !isUnlocked && (ach.id === 'scoreHunter' || ach.id === 'memeCurator');
+    const compactW = Math.max(36, Math.min(44, cardH - 14));
+    let compact = forceCompact && !hasBar;
+    let rightW = compact ? compactW : Math.min(150, Math.max(96, cardW * 0.28));
+    const rightX = () => cardW / 2 - padX - rightW / 2;
 
     // Title + description, stacked and vertically centred
     const textX = iconX + iconSize / 2 + 12;
-    const maxTextW = Math.max(80, rightX - rightW / 2 - 10 - textX);
-    const titleFs = Math.round(Math.max(13, Math.min(17, cardH * 0.24)));
-    let descFs = Math.round(Math.max(12, Math.min(14, cardH * 0.18)));
+    const maxTextW = () => Math.max(80, rightX() - rightW / 2 - 10 - textX);
+    let titleFs = Math.round(Math.max(13, Math.min(17, cardH * 0.24)));
+    const descStartFs = Math.round(Math.max(12, Math.min(14, cardH * 0.18)));
+    let descFs = descStartFs;
 
     let cardTitle;
     let cardDesc;
@@ -238,15 +262,35 @@ export class AchievementsScene extends Phaser.Scene {
         { fontSize: `${descFs}px`, color: '#AAAAAA', originX: 0 }
       );
     }
-    cardTitle.setWordWrapWidth(maxTextW).setAlign('left');
-    cardDesc.setWordWrapWidth(maxTextW).setAlign('left');
+    const wrap = () => {
+      cardTitle.setWordWrapWidth(maxTextW()).setAlign('left');
+      cardDesc.setWordWrapWidth(maxTextW()).setAlign('left');
+    };
+    wrap();
 
     const lineGap = 3;
     const fits = () => cardTitle.height + lineGap + cardDesc.height <= cardH - 10;
-    // Shrink the description to the label minimum if it is still too tall
-    while (!fits() && descFs > 12) {
-      descFs -= 1;
+    const shrinkDesc = () => {
+      while (!fits() && descFs > 12) {
+        descFs -= 1;
+        cardDesc.setFontSize(`${descFs}px`);
+      }
+    };
+    // 1) Shrink the description to the label minimum
+    shrinkDesc();
+    // 2) Still too tall: give the text the status area's room (compact badge) and try again
+    if (!fits() && !hasBar) {
+      compact = true;
+      rightW = compactW;
+      descFs = descStartFs;
       cardDesc.setFontSize(`${descFs}px`);
+      wrap();
+      shrinkDesc();
+    }
+    // 3) Last resort: shrink the title to the label minimum
+    while (!fits() && titleFs > 12) {
+      titleFs -= 1;
+      cardTitle.setFontSize(`${titleFs}px`);
     }
     const blockH = cardTitle.height + lineGap + cardDesc.height;
     cardTitle.setOrigin(0, 0).setPosition(textX, -blockH / 2);
@@ -254,49 +298,53 @@ export class AchievementsScene extends Phaser.Scene {
 
     card.add([panel, iconBg, iconText, cardTitle, cardDesc]);
 
+    const rx = rightX();
     if (isUnlocked) {
-      const badgeW = Math.min(110, rightW);
-      const badgeH = Math.min(36, cardH - 14);
+      const badgeW = compact ? compactW : Math.min(110, rightW);
+      const badgeH = compact ? compactW : Math.min(36, cardH - 14);
       const badgeBg = this.add.graphics();
-      badgeBg.fillStyle(THEME.colors.slimeGreen, 1);
-      badgeBg.fillRoundedRect(rightX - badgeW / 2, -badgeH / 2, badgeW, badgeH, 10);
+      badgeBg.fillStyle(unlockColor, 1);
+      badgeBg.fillRoundedRect(rx - badgeW / 2, -badgeH / 2, badgeW, badgeH, 10);
       badgeBg.lineStyle(2, THEME.colors.ink, 1);
-      badgeBg.strokeRoundedRect(rightX - badgeW / 2, -badgeH / 2, badgeW, badgeH, 10);
-      const badgeLabel = new LocalizedText(this, rightX, 0, 'achievements.unlocked', {}, {
-        fontSize: '14px',
-        color: THEME.colors.inkHex,
-        isHud: true
-      });
+      badgeBg.strokeRoundedRect(rx - badgeW / 2, -badgeH / 2, badgeW, badgeH, 10);
+      const badgeLabel = compact
+        ? new InkText(this, rx, 0, gold ? '★' : '✓', { fontSize: `${Math.round(compactW * 0.5)}px`, color: THEME.colors.inkHex, isHud: true })
+        : new LocalizedText(this, rx, 0, gold ? 'achievements.secret' : 'achievements.unlocked', {}, {
+          fontSize: '14px',
+          color: THEME.colors.inkHex,
+          isHud: true
+        });
       card.add([badgeBg, badgeLabel]);
-    } else if (ach.id === 'scoreHunter' || ach.id === 'memeCurator') {
+    } else if (hasBar) {
       const barW = rightW - 8;
       const barH = 14;
-      const barLabel = new InkText(this, rightX, 0, `${progress.current}/${progress.target}`, {
+      const barLabel = new InkText(this, rx, 0, `${progress.current}/${progress.target}`, {
         fontSize: '12px',
         color: '#DDDDDD'
       });
       const stackH = barLabel.height + 4 + barH;
-      barLabel.setPosition(rightX, -stackH / 2 + barLabel.height / 2);
+      barLabel.setPosition(rx, -stackH / 2 + barLabel.height / 2);
       const barY = stackH / 2 - barH / 2;
       const barG = this.add.graphics();
       barG.fillStyle(THEME.colors.playfieldTray, 1);
-      barG.fillRoundedRect(rightX - barW / 2, barY - barH / 2, barW, barH, 5);
+      barG.fillRoundedRect(rx - barW / 2, barY - barH / 2, barW, barH, 5);
       barG.lineStyle(2, THEME.colors.ink, 1);
-      barG.strokeRoundedRect(rightX - barW / 2, barY - barH / 2, barW, barH, 5);
+      barG.strokeRoundedRect(rx - barW / 2, barY - barH / 2, barW, barH, 5);
       const pct = Math.min(1, progress.current / progress.target);
       if (pct > 0) {
         barG.fillStyle(THEME.colors.arcadeYellow, 1);
-        barG.fillRoundedRect(rightX - barW / 2, barY - barH / 2, Math.max(barH, barW * pct), barH, 5);
+        barG.fillRoundedRect(rx - barW / 2, barY - barH / 2, Math.max(barH, barW * pct), barH, 5);
       }
       card.add([barG, barLabel]);
     } else {
-      const lockText = new InkText(this, rightX, 0, '🔒', {
+      const lockText = new InkText(this, rx, 0, '🔒', {
         fontSize: `${Math.round(Math.max(18, Math.min(24, cardH * 0.34)))}px`,
         color: '#888888'
       });
       card.add(lockText);
     }
 
+    card.compactStatus = compact;
     return card;
   }
 

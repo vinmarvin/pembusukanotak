@@ -14,7 +14,8 @@ export function checkAchievements(saveData) {
       fullyBrainRot: false,
       scoreHunter: false,
       memeCurator: false,
-      supportCreator: false
+      supportCreator: false,
+      detoxComplete: false
     };
   }
 
@@ -50,6 +51,8 @@ export function checkAchievements(saveData) {
   // 5. Support Creator: Click the donation button (set directly when button is pressed)
   // If already set in save, keep it.
 
+  // 6. Detox Complete (hidden): only from a Boss Rush run, see checkDetoxComplete().
+
   return newlyUnlocked;
 }
 
@@ -79,5 +82,32 @@ export function unlockFullyBrainRot(saveData) {
   if (saveData.achievements.fullyBrainRot) return false;
   saveData.achievements.fullyBrainRot = true;
   checkAchievements(saveData);
+  return true;
+}
+
+// Achievements shown on the Achievements page: hidden ones only once unlocked.
+export function visibleAchievements(saveData) {
+  return ACHIEVEMENTS_LIST.filter((a) => !a.hidden || Boolean(saveData?.achievements?.[a.id]));
+}
+
+// Unlocked achievements, hidden ones included (6/5 once Detox Complete is unlocked).
+export function countUnlockedAchievements(saveData) {
+  return ACHIEVEMENTS_LIST.filter((a) => Boolean(saveData?.achievements?.[a.id])).length;
+}
+
+// Detox Complete (GAME_SPEC decision 39). Called on every boss kill in Boss Rush with the number of
+// bosses defeated in this run. Unlocks only if the run reached the threshold and every non-hidden
+// achievement is already unlocked at this moment. Returns true only when newly unlocked.
+export function checkDetoxComplete(saveData, bossesDefeatedInRun) {
+  if (!saveData) return false;
+  if (!saveData.achievements) checkAchievements(saveData);
+  if (saveData.achievements.detoxComplete) return false;
+  const ach = ACHIEVEMENTS_LIST.find((a) => a.id === 'detoxComplete');
+  if (!ach || bossesDefeatedInRun < ach.bossRushBosses) return false;
+  const othersDone = ACHIEVEMENTS_LIST
+    .filter((a) => !a.hidden)
+    .every((a) => Boolean(saveData.achievements[a.id]));
+  if (!othersDone) return false;
+  saveData.achievements.detoxComplete = true;
   return true;
 }

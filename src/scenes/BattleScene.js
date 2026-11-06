@@ -28,7 +28,10 @@ import { EventBus } from '../systems/EventBus.js';
 import { AudioManager } from '../systems/AudioManager.js';
 import { SaveManager } from '../systems/SaveManager.js';
 import { recordClearedCandies, recordBossDefeat } from '../core/unlocks/memebook.js';
-import { checkAchievements } from '../core/unlocks/achievements.js';
+import { checkAchievements, checkDetoxComplete } from '../core/unlocks/achievements.js';
+import { ACHIEVEMENTS_CONFIG } from '../config/achievements.config.js';
+import { showAchievementToast } from '../ui/AchievementToast.js';
+import { BattleFx } from '../ui/BattleFx.js';
 import { createBoard, resolveMove } from '../core/board/index.js';
 import { FightEngine } from '../core/combat/index.js';
 import { rng } from '../core/rng.js';
@@ -190,6 +193,16 @@ export class BattleScene extends Phaser.Scene {
     // Boss effect & freeze overlay
     this.bossOverlay = new BossEffectOverlay(this);
 
+    // Enemy taunt bubble (decision 37) and Boss Rush callouts (decision 38)
+    this.countdownRight = 0;
+    this.battleFx = new BattleFx(this, {
+      mode: this.mode,
+      getEnemy: () => this.fight.enemy,
+      getBoardMetrics: () => this.boardView.boardMetrics,
+      getEnemyAnchorX: () => worldPos(this.enemyPortrait).x,
+      getAvoidRight: () => this.countdownRight
+    });
+
     // Debug scene button (strictly gated behind ?debug=1 per Phase 8 task)
     if (isDebug) {
       this.debugSceneBtn = new Button(this, 0, 0, 75, 36, {
@@ -255,11 +268,14 @@ export class BattleScene extends Phaser.Scene {
       const result = resolveMove(this.boardGrid, { r1, c1, r2, c2 }, rng, { isTimeKill: false });
 
       if (!result.valid) {
+        this.battleFx.wrongSwap();
         this.boardView.animateRevert(r1, c1, r2, c2, () => this.finishMove());
         return;
       }
 
       this.boardGrid = result.grid;
+      this.battleFx.validMove();
+      this.battleFx.moveStart();
 
       // Track destroyed candies across modes
       SaveManager.update((s) => {
@@ -293,6 +309,7 @@ export class BattleScene extends Phaser.Scene {
     const enemyIdx = this.fight.enemyIndex;
     const defRes = this.fight.dealPlayerDamage(step.cleared.length);
     if (defRes.damage <= 0 && !defRes.defeated) return;
+    this.battleFx.step(defRes.defeated);
 
     this.fireAttackOrbs(step.cleared, () => {
       const pos = worldPos(this.enemyPortrait);
@@ -337,10 +354,16 @@ export class BattleScene extends Phaser.Scene {
     AudioManager.playSfx('sfx.win');
     // Boss Rush: every defeated boss counts for the Meme Book
     if (this.mode === 'bossRush' && defRes.defeatedEnemy?.isBoss) {
+      let detox = false;
       SaveManager.update((s) => {
         recordBossDefeat(s, defRes.defeatedEnemy.id);
         checkAchievements(s);
+        detox = checkDetoxComplete(s, this.fight.defeatedCount);
       });
+      if (detox) {
+        const ach = ACHIEVEMENTS_CONFIG.list.find((a) => a.id === 'detoxComplete');
+        showAchievementToast(this, { icon: ach.icon, titleKey: ach.titleKey });
+      }
     }
     if (defRes.stageComplete) {
       this.pendingBossEffects = [];
@@ -353,6 +376,7 @@ export class BattleScene extends Phaser.Scene {
       });
     } else {
       // Advance to next enemy and update visuals
+      this.battleFx.newEnemy();
       this.updateEnemyCardVisuals();
       this.playerHpGauge.setValue(this.fight.playerHp);
       if (defRes.healed > 0) {
@@ -831,10 +855,10 @@ export class BattleScene extends Phaser.Scene {
     // Countdown Row
     const cZone = battle.countdown;
     this.countdownRow.setPosition(cZone.x + cZone.width / 2, cZone.y + cZone.height / 2);
-    this.countdownGauge.resize(
-      Math.min(cZone.width * (battle.mode === 'compact' ? 0.95 : 0.7), 360 * uiScale),
-      Math.max(16, cZone.height * 0.7)
-    );
+    const countdownW = Math.min(cZone.width * (battle.mode === 'compact' ? 0.95 : 0.7), 360 * uiScale);
+    this.countdownGauge.resize(countdownW, Math.max(16, cZone.height * 0.7));
+    this.countdownRight = cZone.x + cZone.width / 2 + countdownW / 2;
+    if (this.battleFx) this.battleFx.relayout();
 
     // Hard mode power-up buttons (may take a row from the board zone in portrait)
     let boardZone = battle.board;

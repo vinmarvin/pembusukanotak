@@ -3,7 +3,7 @@ export const ASSETS_MANIFEST = {
   "images": {
     "large": {
       "key": "large",
-      "path": "assets/images/large.png",
+      "path": "assets/images/large.webp",
       "category": "minion",
       "originalSize": {
         "width": 479,
@@ -20,7 +20,7 @@ export const ASSETS_MANIFEST = {
     },
     "b3": {
       "key": "b3",
-      "path": "assets/images/b3.png",
+      "path": "assets/images/b3.webp",
       "category": "boss",
       "originalSize": {
         "width": 384,
@@ -37,7 +37,7 @@ export const ASSETS_MANIFEST = {
     },
     "b2": {
       "key": "b2",
-      "path": "assets/images/b2.png",
+      "path": "assets/images/b2.webp",
       "category": "boss",
       "originalSize": {
         "width": 501,
@@ -54,7 +54,7 @@ export const ASSETS_MANIFEST = {
     },
     "b1": {
       "key": "b1",
-      "path": "assets/images/b1.png",
+      "path": "assets/images/b1.webp",
       "category": "boss",
       "originalSize": {
         "width": 384,
@@ -71,7 +71,7 @@ export const ASSETS_MANIFEST = {
     },
     "b5": {
       "key": "b5",
-      "path": "assets/images/b5.png",
+      "path": "assets/images/b5.webp",
       "category": "boss",
       "originalSize": {
         "width": 408,
@@ -88,7 +88,7 @@ export const ASSETS_MANIFEST = {
     },
     "b4": {
       "key": "b4",
-      "path": "assets/images/b4.png",
+      "path": "assets/images/b4.webp",
       "category": "boss",
       "originalSize": {
         "width": 261,
@@ -105,7 +105,7 @@ export const ASSETS_MANIFEST = {
     },
     "c67": {
       "key": "c67",
-      "path": "assets/images/c67.png",
+      "path": "assets/images/c67.webp",
       "category": "candy",
       "originalSize": {
         "width": 268,
@@ -122,7 +122,7 @@ export const ASSETS_MANIFEST = {
     },
     "bluberini": {
       "key": "bluberini",
-      "path": "assets/images/bluberini.png",
+      "path": "assets/images/bluberini.webp",
       "category": "candy",
       "originalSize": {
         "width": 384,
@@ -139,7 +139,7 @@ export const ASSETS_MANIFEST = {
     },
     "lirili": {
       "key": "lirili",
-      "path": "assets/images/lirili.png",
+      "path": "assets/images/lirili.webp",
       "category": "candy",
       "originalSize": {
         "width": 364,
@@ -156,7 +156,7 @@ export const ASSETS_MANIFEST = {
     },
     "nugget": {
       "key": "nugget",
-      "path": "assets/images/nugget.png",
+      "path": "assets/images/nugget.webp",
       "category": "candy",
       "originalSize": {
         "width": 216,
@@ -173,7 +173,7 @@ export const ASSETS_MANIFEST = {
     },
     "skibidi": {
       "key": "skibidi",
-      "path": "assets/images/skibidi.png",
+      "path": "assets/images/skibidi.webp",
       "category": "candy",
       "originalSize": {
         "width": 255,
@@ -190,7 +190,7 @@ export const ASSETS_MANIFEST = {
     },
     "udin": {
       "key": "udin",
-      "path": "assets/images/udin.png",
+      "path": "assets/images/udin.webp",
       "category": "candy",
       "originalSize": {
         "width": 345,
@@ -207,7 +207,7 @@ export const ASSETS_MANIFEST = {
     },
     "logo": {
       "key": "logo",
-      "path": "assets/images/logo.png",
+      "path": "assets/images/logo.webp",
       "category": "special",
       "originalSize": {
         "width": 513,
@@ -224,7 +224,7 @@ export const ASSETS_MANIFEST = {
     },
     "medium": {
       "key": "medium",
-      "path": "assets/images/medium.png",
+      "path": "assets/images/medium.webp",
       "category": "minion",
       "originalSize": {
         "width": 228,
@@ -241,7 +241,7 @@ export const ASSETS_MANIFEST = {
     },
     "player": {
       "key": "player",
-      "path": "assets/images/player.png",
+      "path": "assets/images/player.webp",
       "category": "special",
       "originalSize": {
         "width": 669,
@@ -258,7 +258,7 @@ export const ASSETS_MANIFEST = {
     },
     "small": {
       "key": "small",
-      "path": "assets/images/small.png",
+      "path": "assets/images/small.webp",
       "category": "minion",
       "originalSize": {
         "width": 255,
@@ -307,7 +307,7 @@ export const ASSETS_MANIFEST = {
     },
     "sfx.boss.b2": {
       "key": "sfx.boss.b2",
-      "path": "assets/audio/sfx_boss_b2.m4a",
+      "path": "assets/audio/sfx_boss_b2.mp3",
       "category": "sfx"
     },
     "sfx.hit": {
@@ -360,7 +360,7 @@ export const ASSETS_MANIFEST = {
     "egg.less5000": {
       "key": "egg.less5000",
       "kind": "image",
-      "path": "assets/easteregg/egg_less5000.png"
+      "path": "assets/easteregg/egg_less5000.webp"
     },
     "egg.c67": {
       "key": "egg.c67",

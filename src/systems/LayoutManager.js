@@ -295,6 +295,22 @@ class LayoutManagerImpl {
     return { boardZone, size, positions: [{ x: cx - dx, y }, { x: cx + dx, y }] };
   }
 
+  // Free space for the enemy taunt bubble (GAME_SPEC decision 37): right of the board tray and of
+  // `avoidRight` (the countdown bar's right edge), from below the enemy card to the bottom of the
+  // content. Stacked landscape only. Returns null when there is no room, so the bubble never
+  // covers the board.
+  planTauntBubble(layout, metrics, { avoidRight = 0, minWidth, gap }) {
+    const { contentArea, battle } = layout;
+    if (!layout.isLandscape || layout.isCompact || battle.mode !== 'stacked') return null;
+    const pad = SCREEN_CONFIG.boardTrayPad;
+    const left = Math.max(metrics.startX + metrics.boardWidth + pad, avoidRight) + gap;
+    const right = contentArea.x + contentArea.width;
+    const top = battle.enemyCard.y + battle.enemyCard.height + gap;
+    const bottom = contentArea.y + contentArea.height;
+    if (right - left < minWidth || bottom - top < minWidth / 3) return null;
+    return rect(left, top, right - left, bottom - top);
+  }
+
   // Square cells centred in the zone. The tray padding is kept free on every side,
   // so the board tray never touches the zone edge (or the screen edge).
   computeBoardMetrics(cols, rows, zone) {

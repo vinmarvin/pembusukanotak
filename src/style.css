@@ -47,3 +47,58 @@ canvas {
   image-rendering: auto;
 }
 
+/* "Rotate your device" message for touch screens held in portrait */
+#rotate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+  background: var(--bg-color);
+  color: #FFFFFF;
+  text-align: center;
+  font-family: 'Quicksand', sans-serif;
+}
+
+#rotate-overlay.show {
+  display: flex;
+}
+
+#rotate-overlay .rotate-phone {
+  width: 64px;
+  height: 108px;
+  border: 6px solid #FFE600;
+  border-radius: 14px;
+  box-shadow: 4px 4px 0 #060208;
+  animation: rotate-hint 2s ease-in-out infinite;
+}
+
+#rotate-overlay .rotate-title {
+  font-family: 'Titan One', sans-serif;
+  font-size: 26px;
+  color: #FFE600;
+  text-shadow: 2px 2px 0 #060208;
+}
+
+#rotate-overlay .rotate-hint {
+  font-size: 17px;
+  font-weight: 700;
+  max-width: 320px;
+}
+
+@keyframes rotate-hint {
+  0%, 25% { transform: rotate(0deg); }
+  55%, 100% { transform: rotate(-90deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #rotate-overlay .rotate-phone {
+    animation: none;
+    transform: rotate(-90deg);
+  }
+}
+

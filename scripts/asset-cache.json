@@ -1,0 +1,21 @@
+{
+  "public/assets/audio/bgm_menu.mp3": "efc73a241e3539c2b5cd88a69425cfc9fab0891733bd7a8bc72ee8f4664148be|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":2}",
+  "public/assets/audio/bgm_story.mp3": "89a0a2587b752a6fb54855d185a405905cdf7e3b4ef63fc98d6b25b5e038167b|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":2}",
+  "public/assets/audio/bgm_timekill.mp3": "e24cc4ced428b2fb3d3b13507f4604cf8705263ce52458fa63f72eb3a5fa6cb5|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":2}",
+  "public/assets/audio/sfx_candy_c67.mp3": "3a712d0264b18b8f76f3bca48f5473bccca3da9e35c958fd18f06da06aed66f6|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":1}",
+  "public/assets/audio/sfx_candy_bluberini.mp3": "7bd2661353bc2929409818bb82655917f05f259ae0fca80262434b222745e012|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":1}",
+  "public/assets/audio/sfx_boss_b3.mp3": "9239f6288568a43775b6e6a722f5a55097e55f6db37eff97406b2a62fd09bc57|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":1}",
+  "public/assets/audio/sfx_boss_b2.mp3": "d321ec56c332e2db8f98c6f8bf7b3ff74ce05ec3303268be7dd9c96624768290|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":1}",
+  "public/assets/audio/sfx_hit.mp3": "74622f31bb3702b190c31d5584948ddaa63db214604cb60a04fdf865b3f9bdb6|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":1}",
+  "public/assets/audio/sfx_egg_less5000.mp3": "b9c582cc3a59e4bc1727daf28153d9b9cbefed1e8e4f7b9dff57cff9c951c5fc|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":1}",
+  "public/assets/audio/sfx_candy_lirili.mp3": "3fb4f5422f1746935982c3ad5f5b692355648de3ada13fb43f601480ea29c648|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":1}",
+  "public/assets/audio/sfx_candy_nugget.mp3": "fb6e3b599c752754da1f9362ca38d5d16abc2a7bdba67f2cafdc153459a0d216|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":1}",
+  "public/assets/audio/sfx_candy_skibidi.mp3": "2f43fe0bf36353596b70af190eb97e9785fe18368db91c9d539493a895f7c909|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":1}",
+  "public/assets/audio/sfx_boss_b1.mp3": "8e1288703a1d23b1c4a79aef75a5b250c89258340a053ae754d86d0a2c9c930f|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":1}",
+  "public/assets/audio/sfx_boss_b5.mp3": "9cbced81f9da1dbc8420b72e365cf0d116e5917b8e09f7f284b7af54588cc0be|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":1}",
+  "public/assets/audio/sfx_boss_b4.mp3": "3a3b68b88838b59fe226509e794ef72be5b2c0a7428ab4b72fc65525e628b2f7|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":1}",
+  "public/assets/audio/sfx_candy_udin.mp3": "cb8a7a28b17a8b927d7770f31081b1c1e8479ef38ebd4653840a152880753754|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":1}",
+  "public/assets/easteregg/egg_c67.mp3": "5aa2bbc5a630cf536b0acbeee100055b3d4c7c8f10adb1b6b9b203f8ed871681|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":1}",
+  "public/assets/easteregg/egg_ambatukam.mp3": "c81aebf42848efb17d48a4500df0bcc4f334f3dfe3ea4e45367a2016d8069e84|v1|{\"bitrate\":\"64k\",\"sampleRate\":44100,\"channels\":1}",
+  "public/assets/easteregg/egg_skibidi.mp4": "f62bc82c702075d8ce81768929468fc2f86444c37dd5866c30fef86f71d31374|v1|{\"maxWidth\":854,\"crf\":30,\"audioBitrate\":\"64k\"}"
+}

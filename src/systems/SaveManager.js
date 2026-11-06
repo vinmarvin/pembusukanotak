@@ -19,7 +19,8 @@ export function getDefaultSave() {
       fullyBrainRot: false,
       scoreHunter: false,
       memeCurator: false,
-      supportCreator: false
+      supportCreator: false,
+      detoxComplete: false
     },
     bestScore: 0,
     tutorialSeen: false,

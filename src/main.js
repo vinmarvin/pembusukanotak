@@ -16,6 +16,7 @@ import { GameOverScene } from './scenes/GameOverScene.js';
 import { MemeBookScene } from './scenes/MemeBookScene.js';
 import { AchievementsScene } from './scenes/AchievementsScene.js';
 import { AssetDebugScene } from './scenes/AssetDebugScene.js';
+import { installRotateOverlay } from './ui/RotateOverlay.js';
 
 const scenes = [
   BootScene,
@@ -35,3 +36,4 @@ const scenes = [
 const config = createGameConfig(scenes);
 
 export const game = new Phaser.Game(config);
+installRotateOverlay(game);
